@@ -1,0 +1,8 @@
+node_modules/
+Pods/
+*.xcworkspace
+*.xcuserstate
+xcuserdata/
+DerivedData/
+build/
+**/.xcode.env.local
