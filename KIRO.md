@@ -59,6 +59,7 @@ npm install
 cd macos && pod install && cd ..
 
 # Build macOS app (compiles native + codegen)
+# Output is redirected to /tmp/rngc-example-build-<timestamp>.log — only prints success/failure
 npm run build:macos
 
 # Run macOS app (builds + launches)

@@ -1,0 +1,61 @@
+#import "RNGCKeyboardHelper.h"
+#import "RNGameController.h"
+#import <GameController/GameController.h>
+
+@implementation RNGCKeyboardHelper {
+  std::shared_ptr<facebook::jsi::Function> _callback;
+}
+
++ (instancetype)shared {
+  static RNGCKeyboardHelper *instance = nil;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    instance = [[RNGCKeyboardHelper alloc] init];
+  });
+  return instance;
+}
+
+- (void)start {
+  GCKeyboard *keyboard = GCKeyboard.coalescedKeyboard;
+  if (!keyboard) {
+    return;
+  }
+
+  keyboard.keyboardInput.keyChangedHandler = ^(
+      GCKeyboardInput *input, GCControllerButtonInput *key, GCKeyCode keyCode,
+      BOOL pressed) {
+    if (!self.module) {
+      return;
+    }
+
+    if (_callback) {
+      auto cb = _callback;
+      double kc = (double)keyCode;
+      bool p = (bool)pressed;
+      self.module->jsInvoker_->invokeAsync(
+          [cb, kc, p](facebook::jsi::Runtime &rt) { cb->call(rt, kc, p); });
+    }
+
+    if (self.eventsEnabled) {
+      facebook::react::KeyboardEventStruct evt{(double)keyCode, (bool)pressed};
+      self.module->emitOnKeyboardEvent(evt);
+    }
+  };
+}
+
+- (void)stop {
+  GCKeyboard *keyboard = GCKeyboard.coalescedKeyboard;
+  if (keyboard) {
+    keyboard.keyboardInput.keyChangedHandler = nil;
+  }
+}
+
+- (void)setCallback:(std::optional<facebook::jsi::Function>)callback {
+  if (callback.has_value()) {
+    _callback = std::make_shared<facebook::jsi::Function>(std::move(*callback));
+  } else {
+    _callback = nullptr;
+  }
+}
+
+@end

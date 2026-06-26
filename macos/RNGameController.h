@@ -2,26 +2,76 @@
 
 #include "RNGameControllerSpecJSI.h"
 #include <ReactCommon/TurboModuleUtils.h>
-#include <mutex>
+#include <string>
 
 namespace facebook::react {
 
-// Concrete type alias for the ButtonEvent struct
-using ButtonEventStruct = NativeGameControllerButtonEvent<double, double>;
+// Type aliases for codegen structs
+using ControllerButtonEventStruct =
+    NativeGameControllerControllerButtonEvent<std::string, double, double>;
+using KeyboardEventStruct = NativeGameControllerKeyboardEvent<double, bool>;
+using MouseButtonEventStruct =
+    NativeGameControllerMouseButtonEvent<double, bool>;
+using MouseMoveEventStruct = NativeGameControllerMouseMoveEvent<double, double>;
 
-// Bridging specialization so emitOnGamepadButton works
-template <> struct Bridging<ButtonEventStruct> {
-  static ButtonEventStruct
+// Bridging for ControllerButtonEvent
+template <> struct Bridging<ControllerButtonEventStruct> {
+  static ControllerButtonEventStruct
   fromJs(jsi::Runtime &rt, const jsi::Object &value,
          const std::shared_ptr<CallInvoker> &jsInvoker) {
-    return NativeGameControllerButtonEventBridging<ButtonEventStruct>::fromJs(
+    return NativeGameControllerControllerButtonEventBridging<
+        ControllerButtonEventStruct>::fromJs(rt, value, jsInvoker);
+  }
+  static jsi::Object toJs(jsi::Runtime &rt,
+                          const ControllerButtonEventStruct &value,
+                          const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerControllerButtonEventBridging<
+        ControllerButtonEventStruct>::toJs(rt, value, jsInvoker);
+  }
+};
+
+// Bridging for KeyboardEvent
+template <> struct Bridging<KeyboardEventStruct> {
+  static KeyboardEventStruct
+  fromJs(jsi::Runtime &rt, const jsi::Object &value,
+         const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerKeyboardEventBridging<
+        KeyboardEventStruct>::fromJs(rt, value, jsInvoker);
+  }
+  static jsi::Object toJs(jsi::Runtime &rt, const KeyboardEventStruct &value,
+                          const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerKeyboardEventBridging<KeyboardEventStruct>::toJs(
         rt, value, jsInvoker);
   }
+};
 
-  static jsi::Object toJs(jsi::Runtime &rt, const ButtonEventStruct &value,
+// Bridging for MouseButtonEvent
+template <> struct Bridging<MouseButtonEventStruct> {
+  static MouseButtonEventStruct
+  fromJs(jsi::Runtime &rt, const jsi::Object &value,
+         const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerMouseButtonEventBridging<
+        MouseButtonEventStruct>::fromJs(rt, value, jsInvoker);
+  }
+  static jsi::Object toJs(jsi::Runtime &rt, const MouseButtonEventStruct &value,
                           const std::shared_ptr<CallInvoker> &jsInvoker) {
-    return NativeGameControllerButtonEventBridging<ButtonEventStruct>::toJs(
-        rt, value, jsInvoker);
+    return NativeGameControllerMouseButtonEventBridging<
+        MouseButtonEventStruct>::toJs(rt, value, jsInvoker);
+  }
+};
+
+// Bridging for MouseMoveEvent
+template <> struct Bridging<MouseMoveEventStruct> {
+  static MouseMoveEventStruct
+  fromJs(jsi::Runtime &rt, const jsi::Object &value,
+         const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerMouseMoveEventBridging<
+        MouseMoveEventStruct>::fromJs(rt, value, jsInvoker);
+  }
+  static jsi::Object toJs(jsi::Runtime &rt, const MouseMoveEventStruct &value,
+                          const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerMouseMoveEventBridging<
+        MouseMoveEventStruct>::toJs(rt, value, jsInvoker);
   }
 };
 
@@ -30,29 +80,46 @@ public:
   RNGameController(std::shared_ptr<CallInvoker> jsInvoker);
   ~RNGameController();
 
-  using NativeGameControllerCxxSpec<RNGameController>::emitOnConnected;
-  using NativeGameControllerCxxSpec<RNGameController>::emitOnDisconnected;
-  using NativeGameControllerCxxSpec<RNGameController>::emitOnGamepadButton;
+  // Promote emit methods to public
+  using NativeGameControllerCxxSpec<
+      RNGameController>::emitOnControllerConnected;
+  using NativeGameControllerCxxSpec<
+      RNGameController>::emitOnControllerDisconnected;
+  using NativeGameControllerCxxSpec<
+      RNGameController>::emitOnControllerCurrentChange;
+  using NativeGameControllerCxxSpec<RNGameController>::emitOnControllerButton;
+  using NativeGameControllerCxxSpec<RNGameController>::emitOnKeyboardEvent;
+  using NativeGameControllerCxxSpec<RNGameController>::emitOnMouseButton;
+  using NativeGameControllerCxxSpec<RNGameController>::emitOnMouseMoveEvent;
 
+  // Spec methods
   jsi::Value getControllers(jsi::Runtime &rt);
-  jsi::Object getControllerState(jsi::Runtime &rt, double controllerId);
-  void registerEventCallback(jsi::Runtime &rt,
-                             std::optional<jsi::Function> callback);
-  void toggleButtonEvents(jsi::Runtime &rt, bool enabled);
-  jsi::Value setLightColor(jsi::Runtime &rt, double controllerId, double r,
+  jsi::Object getControllerState(jsi::Runtime &rt, jsi::String controllerId);
+  void registerControllerEventCallback(jsi::Runtime &rt,
+                                       std::optional<jsi::Function> callback);
+  void registerKeyboardEventCallback(jsi::Runtime &rt,
+                                     std::optional<jsi::Function> callback);
+  void registerMouseButtonEventCallback(jsi::Runtime &rt,
+                                        std::optional<jsi::Function> callback);
+  void registerMouseMoveEventCallback(jsi::Runtime &rt,
+                                      std::optional<jsi::Function> callback);
+  jsi::Value _startControllerCapture(jsi::Runtime &rt);
+  jsi::Value stopControllerCapture(jsi::Runtime &rt);
+  void toggleMouseMoveDeltaCollect(jsi::Runtime &rt, bool enable);
+  void getMouseMoveDeltaAndReset(jsi::Runtime &rt, jsi::Object deltas);
+  void toggleControllerCurrentEvents(jsi::Runtime &rt, bool enable);
+  void toggleControllerButtonEvents(jsi::Runtime &rt, bool enable);
+  void toggleKeyboardEvents(jsi::Runtime &rt, bool enable);
+  void toggleMouseButtonEvents(jsi::Runtime &rt, bool enable);
+  void toggleMouseMoveEvents(jsi::Runtime &rt, bool enable);
+  jsi::Value setLightColor(jsi::Runtime &rt, jsi::String controllerId, double r,
                            double g, double b);
-  jsi::Value setPlayerIndex(jsi::Runtime &rt, double controllerId,
+  jsi::Value setPlayerIndex(jsi::Runtime &rt, jsi::String controllerId,
                             double index);
-
-  // Called from ObjC helper on main thread
-  void handleConnect(int controllerId);
-  void handleDisconnect(int controllerId);
-  void handleButtonChange(int controllerId, uint32_t buttons);
+  jsi::Value shouldMonitorBackgroundEvents(jsi::Runtime &rt, bool enable);
 
   std::shared_ptr<CallInvoker> jsInvoker_;
   bool buttonEventsEnabled_{false};
-  std::shared_ptr<jsi::Function> eventCallback_;
-  std::mutex callbackMutex_;
 };
 
 } // namespace facebook::react
