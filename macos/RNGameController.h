@@ -10,20 +10,18 @@ namespace facebook::react {
 using ButtonEventStruct = NativeGameControllerButtonEvent<double, double>;
 
 // Bridging specialization so emitOnGamepadButton works
-template <>
-struct Bridging<ButtonEventStruct> {
-  static ButtonEventStruct fromJs(
-      jsi::Runtime &rt,
-      const jsi::Object &value,
-      const std::shared_ptr<CallInvoker> &jsInvoker) {
-    return NativeGameControllerButtonEventBridging<ButtonEventStruct>::fromJs(rt, value, jsInvoker);
+template <> struct Bridging<ButtonEventStruct> {
+  static ButtonEventStruct
+  fromJs(jsi::Runtime &rt, const jsi::Object &value,
+         const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerButtonEventBridging<ButtonEventStruct>::fromJs(
+        rt, value, jsInvoker);
   }
 
-  static jsi::Object toJs(
-      jsi::Runtime &rt,
-      const ButtonEventStruct &value,
-      const std::shared_ptr<CallInvoker> &jsInvoker) {
-    return NativeGameControllerButtonEventBridging<ButtonEventStruct>::toJs(rt, value, jsInvoker);
+  static jsi::Object toJs(jsi::Runtime &rt, const ButtonEventStruct &value,
+                          const std::shared_ptr<CallInvoker> &jsInvoker) {
+    return NativeGameControllerButtonEventBridging<ButtonEventStruct>::toJs(
+        rt, value, jsInvoker);
   }
 };
 
