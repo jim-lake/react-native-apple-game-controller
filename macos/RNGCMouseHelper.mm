@@ -3,8 +3,13 @@
 #import <GameController/GameController.h>
 
 @implementation RNGCMouseHelper {
+  std::shared_ptr<facebook::jsi::Function> _buttonCallback;
+  std::shared_ptr<facebook::jsi::Function> _moveCallback;
   id _connectObserver;
   id _disconnectObserver;
+  std::atomic<int32_t> _deltaX;
+  std::atomic<int32_t> _deltaY;
+  NSHashTable<GCMouse *> *_attachedMice;
 }
 
 + (instancetype)shared {
@@ -16,12 +21,29 @@
   return instance;
 }
 
+- (instancetype)init {
+  self = [super init];
+  if (self) {
+    _deltaX.store(0);
+    _deltaY.store(0);
+    _attachedMice = [NSHashTable weakObjectsHashTable];
+  }
+  return self;
+}
+
 - (void)start {
+  // Attach to all currently connected mice
+  for (GCMouse *mouse in GCMouse.mice) {
+    [self _attachHandlers:mouse];
+  }
+
   _connectObserver = [[NSNotificationCenter defaultCenter]
       addObserverForName:GCMouseDidConnectNotification
                   object:nil
                    queue:[NSOperationQueue mainQueue]
               usingBlock:^(NSNotification *note) {
+                GCMouse *mouse = note.object;
+                [self _attachHandlers:mouse];
                 if (self.module) {
                   self.module->emitOnMouseConnected();
                 }
@@ -32,13 +54,97 @@
                   object:nil
                    queue:[NSOperationQueue mainQueue]
               usingBlock:^(NSNotification *note) {
+                GCMouse *mouse = note.object;
+                [self _detachHandlers:mouse];
                 if (self.module) {
                   self.module->emitOnMouseDisconnected();
                 }
               }];
 }
 
+- (void)_attachHandlers:(GCMouse *)mouse {
+  if (!mouse || [_attachedMice containsObject:mouse]) {
+    return;
+  }
+  [_attachedMice addObject:mouse];
+
+  GCMouseInput *input = mouse.mouseInput;
+
+  input.mouseMovedHandler = ^(GCMouseInput *mouseInput, float deltaX,
+                              float deltaY) {
+    if (!self.module) {
+      return;
+    }
+
+    int32_t dx = (int32_t)deltaX;
+    int32_t dy = (int32_t)deltaY;
+
+    if (self.deltaCollectEnabled) {
+      self->_deltaX.fetch_add(dx, std::memory_order_relaxed);
+      self->_deltaY.fetch_add(dy, std::memory_order_relaxed);
+    }
+
+    if (self->_moveCallback) {
+      auto cb = self->_moveCallback;
+      self.module->jsInvoker_->invokeAsync(
+          [cb, dx, dy](facebook::jsi::Runtime &rt) { cb->call(rt, dx, dy); });
+    }
+
+    if (self.moveEventsEnabled) {
+      facebook::react::MouseMoveEventStruct evt{dx, dy};
+      self.module->emitOnMouseMoveEvent(evt);
+    }
+  };
+
+  NSArray<GCControllerButtonInput *> *allButtons = input.buttons.allValues;
+  for (GCControllerButtonInput *btn in allButtons) {
+    btn.pressedChangedHandler =
+        ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+          if (!self.module) {
+            return;
+          }
+
+          int32_t buttonIndex = 0;
+          for (NSUInteger i = 0; i < allButtons.count; i++) {
+            if (allButtons[i] == button) {
+              buttonIndex = (int32_t)i;
+              break;
+            }
+          }
+
+          bool p = pressed;
+
+          if (self->_buttonCallback) {
+            auto cb = self->_buttonCallback;
+            self.module->jsInvoker_->invokeAsync(
+                [cb, buttonIndex, p](facebook::jsi::Runtime &rt) {
+                  cb->call(rt, buttonIndex, p);
+                });
+          }
+
+          if (self.buttonEventsEnabled) {
+            facebook::react::MouseButtonEventStruct evt{buttonIndex, p};
+            self.module->emitOnMouseButton(evt);
+          }
+        };
+  }
+}
+
+- (void)_detachHandlers:(GCMouse *)mouse {
+  if (!mouse) {
+    return;
+  }
+  [_attachedMice removeObject:mouse];
+  mouse.mouseInput.mouseMovedHandler = nil;
+  for (GCControllerButtonInput *btn in mouse.mouseInput.buttons.allValues) {
+    btn.pressedChangedHandler = nil;
+  }
+}
+
 - (void)stop {
+  for (GCMouse *mouse in [_attachedMice allObjects]) {
+    [self _detachHandlers:mouse];
+  }
   if (_connectObserver) {
     [[NSNotificationCenter defaultCenter] removeObserver:_connectObserver];
     _connectObserver = nil;
@@ -47,6 +153,27 @@
     [[NSNotificationCenter defaultCenter] removeObserver:_disconnectObserver];
     _disconnectObserver = nil;
   }
+}
+
+- (void)setButtonCallback:(std::shared_ptr<facebook::jsi::Function>)callback {
+  _buttonCallback = std::move(callback);
+}
+
+- (std::shared_ptr<facebook::jsi::Function>)clearButtonCallback {
+  return std::move(_buttonCallback);
+}
+
+- (void)setMoveCallback:(std::shared_ptr<facebook::jsi::Function>)callback {
+  _moveCallback = std::move(callback);
+}
+
+- (std::shared_ptr<facebook::jsi::Function>)clearMoveCallback {
+  return std::move(_moveCallback);
+}
+
+- (void)getDeltaAndReset:(int32_t *)outX y:(int32_t *)outY {
+  *outX = _deltaX.exchange(0, std::memory_order_relaxed);
+  *outY = _deltaY.exchange(0, std::memory_order_relaxed);
 }
 
 @end

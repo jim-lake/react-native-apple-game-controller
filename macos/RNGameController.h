@@ -9,10 +9,9 @@ namespace facebook::react {
 // Type aliases for codegen structs
 using ControllerButtonEventStruct =
     NativeGameControllerControllerButtonEvent<std::string, double, double>;
-using KeyboardEventStruct = NativeGameControllerKeyboardEvent<double, bool>;
-using MouseButtonEventStruct =
-    NativeGameControllerMouseButtonEvent<double, bool>;
-using MouseMoveEventStruct = NativeGameControllerMouseMoveEvent<double, double>;
+using KeyboardEventStruct = NativeGameControllerKeyboardEvent<int, bool>;
+using MouseButtonEventStruct = NativeGameControllerMouseButtonEvent<int, bool>;
+using MouseMoveEventStruct = NativeGameControllerMouseMoveEvent<int, int>;
 
 // Bridging for ControllerButtonEvent
 template <> struct Bridging<ControllerButtonEventStruct> {

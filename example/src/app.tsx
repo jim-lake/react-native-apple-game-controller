@@ -41,8 +41,14 @@ function App(): React.JSX.Element {
           setControllers(c);
         })
         .catch((e: any) => addLine(`[error] getControllers: ${e.message}`));
+      GameController.hasKeyboard()
+        .then(v => addLine(`[startup] hasKeyboard: ${v}`))
+        .catch((e: any) => addLine(`[error] hasKeyboard: ${e.message}`));
+      GameController.hasMouse()
+        .then(v => addLine(`[startup] hasMouse: ${v}`))
+        .catch((e: any) => addLine(`[error] hasMouse: ${e.message}`));
     } catch (e: any) {
-      addLine(`[error] startup getControllers: ${e.message}`);
+      addLine(`[error] startup: ${e.message}`);
     }
   }, []);
 
@@ -86,8 +92,20 @@ function App(): React.JSX.Element {
         GameController.onMouseMoveEvent(e => {
           addLine(`[mouse-move] dx=${e.deltaX} dy=${e.deltaY}`);
         }),
+        GameController.onKeyboardConnected(() => {
+          addLine('[keyboard] connected');
+        }),
+        GameController.onKeyboardDisconnected(() => {
+          addLine('[keyboard] disconnected');
+        }),
+        GameController.onMouseConnected(() => {
+          addLine('[mouse] connected');
+        }),
+        GameController.onMouseDisconnected(() => {
+          addLine('[mouse] disconnected');
+        }),
       ];
-      addLine('[events] Subscribed to 7 EventEmitters');
+      addLine('[events] Subscribed to 11 EventEmitters');
       return () => {
         addLine('[events] Unsubscribing from EventEmitters');
         subs.forEach(s => s.remove());

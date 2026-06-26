@@ -23,26 +23,26 @@
     return;
   }
 
-  keyboard.keyboardInput.keyChangedHandler = ^(
-      GCKeyboardInput *input, GCControllerButtonInput *key, GCKeyCode keyCode,
-      BOOL pressed) {
-    if (!self.module) {
-      return;
-    }
+  keyboard.keyboardInput.keyChangedHandler =
+      ^(GCKeyboardInput *input, GCControllerButtonInput *key, GCKeyCode keyCode,
+        BOOL pressed) {
+        if (!self.module) {
+          return;
+        }
 
-    if (self->_callback) {
-      auto cb = self->_callback;
-      double kc = (double)keyCode;
-      bool p = (bool)pressed;
-      self.module->jsInvoker_->invokeAsync(
-          [cb, kc, p](facebook::jsi::Runtime &rt) { cb->call(rt, kc, p); });
-    }
+        if (self->_callback) {
+          auto cb = self->_callback;
+          int kc = (int)keyCode;
+          bool p = pressed;
+          self.module->jsInvoker_->invokeAsync(
+              [cb, kc, p](facebook::jsi::Runtime &rt) { cb->call(rt, kc, p); });
+        }
 
-    if (self.eventsEnabled) {
-      facebook::react::KeyboardEventStruct evt{(double)keyCode, (bool)pressed};
-      self.module->emitOnKeyboardEvent(evt);
-    }
-  };
+        if (self.eventsEnabled) {
+          facebook::react::KeyboardEventStruct evt{(int)keyCode, pressed};
+          self.module->emitOnKeyboardEvent(evt);
+        }
+      };
 
   _connectObserver = [[NSNotificationCenter defaultCenter]
       addObserverForName:GCKeyboardDidConnectNotification

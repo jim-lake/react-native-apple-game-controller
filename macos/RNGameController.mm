@@ -318,12 +318,34 @@ void RNGameController::registerKeyboardEventCallback(
 
 void RNGameController::registerMouseButtonEventCallback(
     jsi::Runtime &rt, std::optional<jsi::Function> callback) {
-  // TODO: implement mouse button event capture
+  auto cb = callback.has_value()
+                ? std::make_shared<jsi::Function>(std::move(*callback))
+                : nullptr;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    auto old = [[RNGCMouseHelper shared] clearButtonCallback];
+    if (old) {
+      jsInvoker_->invokeAsync([old](jsi::Runtime &rt) mutable { old.reset(); });
+    }
+    if (cb) {
+      [[RNGCMouseHelper shared] setButtonCallback:std::move(cb)];
+    }
+  });
 }
 
 void RNGameController::registerMouseMoveEventCallback(
     jsi::Runtime &rt, std::optional<jsi::Function> callback) {
-  // TODO: implement mouse move event capture
+  auto cb = callback.has_value()
+                ? std::make_shared<jsi::Function>(std::move(*callback))
+                : nullptr;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    auto old = [[RNGCMouseHelper shared] clearMoveCallback];
+    if (old) {
+      jsInvoker_->invokeAsync([old](jsi::Runtime &rt) mutable { old.reset(); });
+    }
+    if (cb) {
+      [[RNGCMouseHelper shared] setMoveCallback:std::move(cb)];
+    }
+  });
 }
 
 // MARK: - Shared Buffers
@@ -350,7 +372,9 @@ jsi::Value RNGameController::stopControllerCapture(jsi::Runtime &rt) {
 
 void RNGameController::toggleMouseMoveDeltaCollect(jsi::Runtime &rt,
                                                    bool enable) {
-  // TODO: implement mouse delta collection
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [RNGCMouseHelper shared].deltaCollectEnabled = enable;
+  });
 }
 
 void RNGameController::getMouseMoveDeltaAndReset(jsi::Runtime &rt,
@@ -377,11 +401,15 @@ void RNGameController::toggleKeyboardEvents(jsi::Runtime &rt, bool enable) {
 }
 
 void RNGameController::toggleMouseButtonEvents(jsi::Runtime &rt, bool enable) {
-  // TODO: implement mouse button EventEmitter toggle
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [RNGCMouseHelper shared].buttonEventsEnabled = enable;
+  });
 }
 
 void RNGameController::toggleMouseMoveEvents(jsi::Runtime &rt, bool enable) {
-  // TODO: implement mouse move EventEmitter toggle
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [RNGCMouseHelper shared].moveEventsEnabled = enable;
+  });
 }
 
 // MARK: - Actions

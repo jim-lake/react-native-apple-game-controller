@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 
-const lines: string[] = [];
+let lines: string[] = [];
 const listeners = new Set<() => void>();
 
 function _notify() {
@@ -20,12 +20,12 @@ function _getSnapshot() {
 
 export function addLine(line: string) {
   console.log(line);
-  lines.push(line);
+  lines = [...lines, line];
   _notify();
 }
 
 export function clearLog() {
-  lines.length = 0;
+  lines = [];
   _notify();
 }
 
