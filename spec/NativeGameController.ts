@@ -1,6 +1,11 @@
 import type { TurboModule } from "react-native";
 import { TurboModuleRegistry } from "react-native";
-import type { EventEmitter } from "react-native/Libraries/Types/CodegenTypes";
+import type {
+  Double,
+  EventEmitter,
+  Float,
+  Int32,
+} from "react-native/Libraries/Types/CodegenTypes";
 
 export interface LightColor {
   r: number;
@@ -41,31 +46,39 @@ export interface ControllerInfo {
   dpads: DpadInfo[];
 }
 export interface ControllerState {
-  analog: number[];
-  buttons: number;
+  analog: Float[];
+  buttons: Int32;
+  lastUpdated: Double;
 }
 export interface ControllerButtonEvent {
   controllerId: string;
-  buttons: number;
-  lastUpdated: number;
+  buttons: Int32;
+  lastUpdated: Double;
 }
 export interface KeyboardEvent {
-  keyCode: number;
+  keyCode: Int32;
   pressed: boolean;
 }
 export interface MouseButtonEvent {
-  button: number;
+  button: Int32;
   pressed: boolean;
 }
 export interface MouseMoveEvent {
-  deltaX: number;
-  deltaY: number;
+  deltaX: Int32;
+  deltaY: Int32;
 }
 
-export type ControllerEventCallback = (event: ControllerButtonEvent) => void;
-export type KeyboardEventCallback = (event: KeyboardEvent) => void;
-export type MouseButtonEventCallback = (event: MouseButtonEvent) => void;
-export type MouseMoveEventCallback = (event: MouseMoveEvent) => void;
+export type ControllerEventCallback = (
+  controllerId: string,
+  buttons: Int32,
+  lastUpdated: Double,
+) => void;
+export type KeyboardEventCallback = (keyCode: Int32, pressed: boolean) => void;
+export type MouseButtonEventCallback = (
+  button: number,
+  pressed: boolean,
+) => void;
+export type MouseMoveEventCallback = (deltaX: Int32, deltaY: Int32) => void;
 
 export interface InternalControllerSharedBuffers {
   controllerId: string;
@@ -76,7 +89,7 @@ export interface InternalControllerSharedBuffers {
 export interface ControllerSharedBuffers {
   controllerId: string;
   analog: Float32Array;
-  buttons: Uint32Array;
+  buttons: Int32Array;
   lastUpdated: Float64Array;
 }
 export interface Spec extends TurboModule {

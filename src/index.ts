@@ -19,7 +19,7 @@ async function startControllerCapture(): Promise<ControllerSharedBuffers[]> {
   return result.map((r) => ({
     controllerId: r.controllerId,
     analog: new Float32Array(r.analog as ArrayBuffer),
-    buttons: new Uint32Array(r.buttons as ArrayBuffer),
+    buttons: new Int32Array(r.buttons as ArrayBuffer),
     lastUpdated: new Float64Array(r.lastUpdated as ArrayBuffer),
   }));
 }
