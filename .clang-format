@@ -1,0 +1,12 @@
+# clang format yaml
+---
+Language: Cpp
+InsertBraces: true
+
+---
+Language: CSharp
+InsertBraces: true
+
+---
+Language: ObjC
+InsertBraces: true

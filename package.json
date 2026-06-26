@@ -13,6 +13,7 @@
     "!**/__tests__"
   ],
   "scripts": {
+    "pretty": "prettier --write src spec && clang-format -i macos/*",
     "ts:check": "tsc --noEmit"
   },
   "keywords": [
@@ -28,6 +29,7 @@
     "react-native-macos": ">=0.81.0"
   },
   "devDependencies": {
+    "prettier": "^3.8.4",
     "typescript": "^5.4.0"
   },
   "codegenConfig": {

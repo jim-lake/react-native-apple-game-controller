@@ -1,6 +1,6 @@
-import type { TurboModule } from 'react-native';
-import { TurboModuleRegistry } from 'react-native';
-import type { EventEmitter } from 'react-native/Libraries/Types/CodegenTypes';
+import type { TurboModule } from "react-native";
+import { TurboModuleRegistry } from "react-native";
+import type { EventEmitter } from "react-native/Libraries/Types/CodegenTypes";
 
 export interface LightColor {
   r: number;
@@ -28,6 +28,7 @@ export interface DpadInfo {
 }
 export interface ControllerInfo {
   controllerId: string;
+  isCurrent: boolean;
   vendorName: string | null;
   productCategory: string | null;
   playerIndex: number;
@@ -78,36 +79,44 @@ export interface ControllerSharedBuffers {
   buttons: Uint32Array;
   lastUpdated: Float64Array;
 }
-export interface MouseDelta {
-  deltaX: number;
-  deltaY: number;
-}
-
 export interface Spec extends TurboModule {
   getControllers(): Promise<ControllerInfo[]>;
   getControllerState(controllerId: string): ControllerState;
-  registerControllerEventCallback(callback: ControllerEventCallback|null): void;
-  registerKeyboardEventCallback(callback: KeyboardEventCallback|null): void;
-  registerMouseButtonEventCallback(callback: MouseButtonEventCallback|null): void;
-  registerMouseMoveEventCallback(callback: MouseMoveEventCallback|null): void;
+  registerControllerEventCallback(
+    callback: ControllerEventCallback | null,
+  ): void;
+  registerKeyboardEventCallback(callback: KeyboardEventCallback | null): void;
+  registerMouseButtonEventCallback(
+    callback: MouseButtonEventCallback | null,
+  ): void;
+  registerMouseMoveEventCallback(callback: MouseMoveEventCallback | null): void;
   _startControllerCapture(): Promise<InternalControllerSharedBuffers[]>;
   stopControllerCapture(): Promise<void>;
   toggleMouseMoveDeltaCollect(enable: boolean): void;
   getMouseMoveDeltaAndReset(deltas: object): void;
 
-  toggleControllerButtonEvents(enabled: boolean): void;
-  toggleKeyboardEvents(enabled: boolean): void;
-  toggleMouseButtonEvents(enabled: boolean): void;
-  toggleMouseMoveEvents(enabled: boolean): void;
-  setLightColor(controllerId: string, r: number, g: number, b: number): Promise<void>;
+  toggleControllerButtonEvents(enable: boolean): void;
+  toggleKeyboardEvents(enable: boolean): void;
+  toggleMouseButtonEvents(enable: boolean): void;
+  toggleMouseMoveEvents(enable: boolean): void;
+  setLightColor(
+    controllerId: string,
+    r: number,
+    g: number,
+    b: number,
+  ): Promise<void>;
   setPlayerIndex(controllerId: string, index: number): Promise<void>;
+  shouldMonitorBackgroundEvents(enable: boolean): Promise<void>;
 
-  readonly onControllerConnected: EventEmitter<number>;
-  readonly onControllerDisconnected: EventEmitter<number>;
+  readonly onControllerConnected: EventEmitter<string>;
+  readonly onControllerDisconnected: EventEmitter<string>;
+  readonly onControllerCurrentChange: EventEmitter<string | null>;
   readonly onControllerButton: EventEmitter<ControllerButtonEvent>;
   readonly onKeyboardEvent: EventEmitter<KeyboardEvent>;
   readonly onMouseButton: EventEmitter<MouseButtonEvent>;
   readonly onMouseMoveEvent: EventEmitter<MouseMoveEvent>;
 }
 
-export const nativeModule = TurboModuleRegistry.getEnforcing<Spec>('GameControllerModule');
+export const nativeModule = TurboModuleRegistry.getEnforcing<Spec>(
+  "GameControllerModule",
+);
