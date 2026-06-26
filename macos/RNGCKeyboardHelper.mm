@@ -18,7 +18,31 @@
 }
 
 - (void)start {
-  GCKeyboard *keyboard = GCKeyboard.coalescedKeyboard;
+  [self _attachHandler:GCKeyboard.coalescedKeyboard];
+
+  _connectObserver = [[NSNotificationCenter defaultCenter]
+      addObserverForName:GCKeyboardDidConnectNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                [self _attachHandler:GCKeyboard.coalescedKeyboard];
+                if (self.module) {
+                  self.module->emitOnKeyboardConnected();
+                }
+              }];
+
+  _disconnectObserver = [[NSNotificationCenter defaultCenter]
+      addObserverForName:GCKeyboardDidDisconnectNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                if (self.module) {
+                  self.module->emitOnKeyboardDisconnected();
+                }
+              }];
+}
+
+- (void)_attachHandler:(GCKeyboard *)keyboard {
   if (!keyboard) {
     return;
   }
@@ -43,26 +67,6 @@
           self.module->emitOnKeyboardEvent(evt);
         }
       };
-
-  _connectObserver = [[NSNotificationCenter defaultCenter]
-      addObserverForName:GCKeyboardDidConnectNotification
-                  object:nil
-                   queue:[NSOperationQueue mainQueue]
-              usingBlock:^(NSNotification *note) {
-                if (self.module) {
-                  self.module->emitOnKeyboardConnected();
-                }
-              }];
-
-  _disconnectObserver = [[NSNotificationCenter defaultCenter]
-      addObserverForName:GCKeyboardDidDisconnectNotification
-                  object:nil
-                   queue:[NSOperationQueue mainQueue]
-              usingBlock:^(NSNotification *note) {
-                if (self.module) {
-                  self.module->emitOnKeyboardDisconnected();
-                }
-              }];
 }
 
 - (void)stop {
@@ -83,6 +87,7 @@
 - (void)setCallback:(std::shared_ptr<facebook::jsi::Function>)callback {
   _callback = std::move(callback);
 }
+
 - (std::shared_ptr<facebook::jsi::Function>)clearCallback {
   return std::move(_callback);
 }
