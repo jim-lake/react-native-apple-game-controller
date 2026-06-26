@@ -28,8 +28,8 @@
       return;
     }
 
-    if (_callback) {
-      auto cb = _callback;
+    if (self->_callback) {
+      auto cb = self->_callback;
       double kc = (double)keyCode;
       bool p = (bool)pressed;
       self.module->jsInvoker_->invokeAsync(

@@ -8,7 +8,7 @@
     "lint": "eslint .",
     "start": "react-native start",
     "test": "jest",
-    "build:macos": "react-native build-macos --mode Debug",
+    "build:macos": "LOGFILE=/tmp/rngc-example-build-$(date +%s).log; react-native build-macos --mode Debug > $LOGFILE 2>&1 && echo \"BUILD SUCCEEDED — $LOGFILE\" || (echo \"BUILD FAILED — $LOGFILE\"; exit 1)",
     "run:macos": "react-native run-macos --mode Debug"
   },
   "dependencies": {
