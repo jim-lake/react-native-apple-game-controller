@@ -13,6 +13,7 @@ Pod::Spec.new do |s|
 
   s.osx.deployment_target = "14.0"
   s.source_files = "macos/**/*.{h,mm}"
+  s.osx.frameworks = "GameController"
 
   install_modules_dependencies(s)
 end
