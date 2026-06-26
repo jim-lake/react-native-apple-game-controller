@@ -88,6 +88,11 @@ public:
   using NativeGameControllerCxxSpec<
       RNGameController>::emitOnControllerCurrentChange;
   using NativeGameControllerCxxSpec<RNGameController>::emitOnControllerButton;
+  using NativeGameControllerCxxSpec<RNGameController>::emitOnKeyboardConnected;
+  using NativeGameControllerCxxSpec<
+      RNGameController>::emitOnKeyboardDisconnected;
+  using NativeGameControllerCxxSpec<RNGameController>::emitOnMouseConnected;
+  using NativeGameControllerCxxSpec<RNGameController>::emitOnMouseDisconnected;
   using NativeGameControllerCxxSpec<RNGameController>::emitOnKeyboardEvent;
   using NativeGameControllerCxxSpec<RNGameController>::emitOnMouseButton;
   using NativeGameControllerCxxSpec<RNGameController>::emitOnMouseMoveEvent;
@@ -95,6 +100,8 @@ public:
   // Spec methods
   jsi::Value getControllers(jsi::Runtime &rt);
   jsi::Object getControllerState(jsi::Runtime &rt, jsi::String controllerId);
+  jsi::Value hasKeyboard(jsi::Runtime &rt);
+  jsi::Value hasMouse(jsi::Runtime &rt);
   void registerControllerEventCallback(jsi::Runtime &rt,
                                        std::optional<jsi::Function> callback);
   void registerKeyboardEventCallback(jsi::Runtime &rt,

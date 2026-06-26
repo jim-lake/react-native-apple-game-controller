@@ -1,5 +1,6 @@
 #include "RNGameController.h"
 #import "RNGCKeyboardHelper.h"
+#import "RNGCMouseHelper.h"
 #import "RNGameControllerHelper.h"
 #import <Foundation/Foundation.h>
 #import <GameController/GameController.h>
@@ -12,8 +13,10 @@ RNGameController::RNGameController(std::shared_ptr<CallInvoker> jsInvoker)
   dispatch_async(dispatch_get_main_queue(), ^{
     [RNGameControllerHelper shared].module = this;
     [RNGCKeyboardHelper shared].module = this;
+    [RNGCMouseHelper shared].module = this;
     setupNotifications();
     [[RNGCKeyboardHelper shared] start];
+    [[RNGCMouseHelper shared] start];
   });
 }
 
@@ -26,6 +29,10 @@ RNGameController::~RNGameController() {
     if ([RNGCKeyboardHelper shared].module == ptr) {
       [[RNGCKeyboardHelper shared] stop];
       [RNGCKeyboardHelper shared].module = nullptr;
+    }
+    if ([RNGCMouseHelper shared].module == ptr) {
+      [[RNGCMouseHelper shared] stop];
+      [RNGCMouseHelper shared].module = nullptr;
     }
   });
 }
@@ -260,6 +267,30 @@ jsi::Object RNGameController::getControllerState(jsi::Runtime &rt,
   obj.setProperty(rt, "buttons", 0.0);
   obj.setProperty(rt, "lastUpdated", 0.0);
   return obj;
+}
+
+// MARK: - hasKeyboard / hasMouse
+
+jsi::Value RNGameController::hasKeyboard(jsi::Runtime &rt) {
+  return createPromiseAsJSIValue(
+      rt, [this](jsi::Runtime &rt, std::shared_ptr<Promise> promise) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          bool has = (GCKeyboard.coalescedKeyboard != nil);
+          this->jsInvoker_->invokeAsync(
+              [promise, has]() { promise->resolve(has); });
+        });
+      });
+}
+
+jsi::Value RNGameController::hasMouse(jsi::Runtime &rt) {
+  return createPromiseAsJSIValue(
+      rt, [this](jsi::Runtime &rt, std::shared_ptr<Promise> promise) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          bool has = (GCMouse.current != nil);
+          this->jsInvoker_->invokeAsync(
+              [promise, has]() { promise->resolve(has); });
+        });
+      });
 }
 
 // MARK: - Callbacks

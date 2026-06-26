@@ -4,6 +4,8 @@
 
 @implementation RNGCKeyboardHelper {
   std::shared_ptr<facebook::jsi::Function> _callback;
+  id _connectObserver;
+  id _disconnectObserver;
 }
 
 + (instancetype)shared {
@@ -41,12 +43,40 @@
       self.module->emitOnKeyboardEvent(evt);
     }
   };
+
+  _connectObserver = [[NSNotificationCenter defaultCenter]
+      addObserverForName:GCKeyboardDidConnectNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                if (self.module) {
+                  self.module->emitOnKeyboardConnected();
+                }
+              }];
+
+  _disconnectObserver = [[NSNotificationCenter defaultCenter]
+      addObserverForName:GCKeyboardDidDisconnectNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                if (self.module) {
+                  self.module->emitOnKeyboardDisconnected();
+                }
+              }];
 }
 
 - (void)stop {
   GCKeyboard *keyboard = GCKeyboard.coalescedKeyboard;
   if (keyboard) {
     keyboard.keyboardInput.keyChangedHandler = nil;
+  }
+  if (_connectObserver) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_connectObserver];
+    _connectObserver = nil;
+  }
+  if (_disconnectObserver) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_disconnectObserver];
+    _disconnectObserver = nil;
   }
 }
 
