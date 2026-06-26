@@ -95,6 +95,9 @@ export interface ControllerSharedBuffers {
 export interface Spec extends TurboModule {
   getControllers(): Promise<ControllerInfo[]>;
   getControllerState(controllerId: string): ControllerState;
+  hasKeyboard(): Promise<boolean>;
+  hasMouse(): Promise<boolean>;
+
   registerControllerEventCallback(
     callback: ControllerEventCallback | null,
   ): void;
@@ -103,6 +106,7 @@ export interface Spec extends TurboModule {
     callback: MouseButtonEventCallback | null,
   ): void;
   registerMouseMoveEventCallback(callback: MouseMoveEventCallback | null): void;
+
   _startControllerCapture(): Promise<InternalControllerSharedBuffers[]>;
   stopControllerCapture(): Promise<void>;
   toggleMouseMoveDeltaCollect(enable: boolean): void;
@@ -126,6 +130,10 @@ export interface Spec extends TurboModule {
   readonly onControllerDisconnected: EventEmitter<string>;
   readonly onControllerCurrentChange: EventEmitter<string>;
   readonly onControllerButton: EventEmitter<ControllerButtonEvent>;
+  readonly onKeyboardConnected: EventEmitter<void>;
+  readonly onKeyboardDisconnected: EventEmitter<void>;
+  readonly onMouseConnected: EventEmitter<void>;
+  readonly onMouseDisconnected: EventEmitter<void>;
   readonly onKeyboardEvent: EventEmitter<KeyboardEvent>;
   readonly onMouseButton: EventEmitter<MouseButtonEvent>;
   readonly onMouseMoveEvent: EventEmitter<MouseMoveEvent>;
