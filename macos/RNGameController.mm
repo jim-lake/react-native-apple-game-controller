@@ -307,10 +307,12 @@ void RNGameController::registerKeyboardEventCallback(
                 : nullptr;
   dispatch_async(dispatch_get_main_queue(), ^{
     if (cb) {
-      jsi::Function fn = std::move(*cb);
-      [[RNGCKeyboardHelper shared] setCallback:std::move(fn)];
+      [[RNGCKeyboardHelper shared] setCallback:std::move(cb)];
     } else {
-      [[RNGCKeyboardHelper shared] setCallback:std::nullopt];
+      auto cb = [[RNGCKeyboardHelper shared] clearCallback];
+      if (cb) {
+        jsInvoker_->invokeAsync([cb](jsi::Runtime &rt) mutable { cb.reset(); });
+      }
     }
   });
 }

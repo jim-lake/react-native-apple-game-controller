@@ -17,6 +17,7 @@ class RNGameController;
 + (instancetype)shared;
 - (void)start;
 - (void)stop;
-- (void)setCallback:(std::optional<facebook::jsi::Function>)callback;
+- (void)setCallback:(std::shared_ptr<facebook::jsi::Function>)callback;
+- (std::shared_ptr<facebook::jsi::Function>)clearCallback;
 
 @end

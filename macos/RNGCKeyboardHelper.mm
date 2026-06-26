@@ -80,12 +80,11 @@
   }
 }
 
-- (void)setCallback:(std::optional<facebook::jsi::Function>)callback {
-  if (callback.has_value()) {
-    _callback = std::make_shared<facebook::jsi::Function>(std::move(*callback));
-  } else {
-    _callback = nullptr;
-  }
+- (void)setCallback:(std::shared_ptr<facebook::jsi::Function>)callback {
+  _callback = std::move(callback);
+}
+- (std::shared_ptr<facebook::jsi::Function>)clearCallback {
+  return std::move(_callback);
 }
 
 @end
