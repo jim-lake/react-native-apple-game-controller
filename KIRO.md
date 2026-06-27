@@ -107,3 +107,10 @@ This generates `RNGameControllerSpecJSI.h` containing:
 - The example uses `fabric_enabled => true` in the Podfile
 - The AppDelegate uses `RCTAppDependencyProvider` for new architecture module discovery
 - Metro config has `watchFolders: [libraryRoot]` so edits to `src/` and `spec/` hot-reload
+
+## Rules
+
+- NEVER use `--legacy-peer-deps` or `--force` with npm install. If there are peer dependency conflicts, fix the version constraints instead.
+- NEVER use `--no-verify` with git commits or pushes.
+- NEVER use `--skip-integrity-check` or any flag that bypasses validation.
+- If a dependency won't install cleanly, resolve the version conflict properly — don't paper over it with flags.
