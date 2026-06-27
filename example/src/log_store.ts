@@ -20,7 +20,7 @@ function _getSnapshot() {
 
 export function addLine(line: string) {
   console.log(line);
-  lines = [...lines, line];
+  lines = [line, ...lines];
   _notify();
 }
 

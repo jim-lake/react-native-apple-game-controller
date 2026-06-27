@@ -1,14 +1,9 @@
-import React, { useRef, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
+import React from 'react';
+import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
 import { useLogLines, clearLog } from '../log_store';
 
 export function LogBox() {
   const lines = useLogLines();
-  const scrollRef = useRef<ScrollView>(null);
-
-  useEffect(() => {
-    scrollRef.current?.scrollToEnd({ animated: false });
-  }, [lines.length]);
 
   return (
     <View style={styles.container}>
@@ -18,13 +13,13 @@ export function LogBox() {
           <Text style={styles.clearBtn}>Clear</Text>
         </Pressable>
       </View>
-      <ScrollView ref={scrollRef} style={styles.scroll}>
-        {lines.map((line, i) => (
-          <Text key={i} style={styles.line}>
-            {line}
-          </Text>
-        ))}
-      </ScrollView>
+      <FlatList
+        inverted
+        data={lines}
+        keyExtractor={(_, i) => String(i)}
+        renderItem={({ item }) => <Text style={styles.line}>{item}</Text>}
+        style={styles.list}
+      />
     </View>
   );
 }
@@ -40,6 +35,6 @@ const styles = StyleSheet.create({
   },
   headerText: { color: '#aaa', fontSize: 12 },
   clearBtn: { color: '#6af', fontSize: 12 },
-  scroll: { flex: 1, padding: 4 },
+  list: { flex: 1, padding: 4 },
   line: { fontSize: 10, color: '#ccc', fontFamily: 'Menlo' },
 });
