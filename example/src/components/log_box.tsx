@@ -1,20 +1,31 @@
 import React from 'react';
 import { View, Text, FlatList, StyleSheet, Pressable } from 'react-native';
-import { useLogLines, clearLog } from '../log_store';
+import {
+  useLogLines,
+  useLogPaused,
+  clearLog,
+  pauseLog,
+  resumeLog,
+} from '../log_store';
 
 export function LogBox() {
   const lines = useLogLines();
+  const paused = useLogPaused();
 
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerText}>Log</Text>
-        <Pressable onPress={clearLog}>
-          <Text style={styles.clearBtn}>Clear</Text>
-        </Pressable>
+        <Text style={styles.headerText}>Log{paused ? ' (paused)' : ''}</Text>
+        <View style={styles.headerButtons}>
+          <Pressable onPress={paused ? resumeLog : pauseLog}>
+            <Text style={styles.btn}>{paused ? 'Resume' : 'Pause'}</Text>
+          </Pressable>
+          <Pressable onPress={clearLog}>
+            <Text style={styles.btn}>Clear</Text>
+          </Pressable>
+        </View>
       </View>
       <FlatList
-        //inverted
         contentContainerStyle={styles.listContainer}
         data={lines}
         keyExtractor={(_, i) => String(i)}
@@ -42,7 +53,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#555',
   },
   headerText: { color: '#aaa', fontSize: 12 },
-  clearBtn: { color: '#6af', fontSize: 12 },
+  headerButtons: { flexDirection: 'row', gap: 8 },
+  btn: { color: '#6af', fontSize: 12 },
   list: { flex: 1, padding: 4, transform: [{ scaleY: -1 }] },
   listContainer: { flexDirection: 'column', paddingTop: 20 },
   line: {
