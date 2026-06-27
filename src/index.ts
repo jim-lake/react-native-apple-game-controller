@@ -1,13 +1,13 @@
-import { nativeModule } from "../spec/NativeGameController";
+import { nativeModule } from '../spec/NativeGameController';
 import type {
   ControllerSharedBuffers,
   Spec,
-} from "../spec/NativeGameController";
-export type * from "../spec/NativeGameController";
+} from '../spec/NativeGameController';
+export type * from '../spec/NativeGameController';
 
 export interface PublicSpec extends Omit<
   Spec,
-  "_startControllerCapture" | "getMouseMoveDelta"
+  '_startControllerCapture' | '_getMouseMoveDeltaAndReset'
 > {
   startControllerCapture(): Promise<ControllerSharedBuffers[]>;
   getMouseMoveDeltaAndReset(deltas: Int32Array): void;
@@ -27,5 +27,8 @@ async function startControllerCapture(): Promise<ControllerSharedBuffers[]> {
 const exportedModule = nativeModule as unknown as PublicSpec;
 
 exportedModule.startControllerCapture = startControllerCapture;
+exportedModule.getMouseMoveDeltaAndReset = (deltas: Int32Array) => {
+  nativeModule._getMouseMoveDeltaAndReset(deltas.buffer);
+};
 
 export default exportedModule;

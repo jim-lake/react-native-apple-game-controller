@@ -6,6 +6,7 @@
     "android": "react-native run-android",
     "ios": "react-native run-ios",
     "lint": "eslint .",
+    "pretty": "prettier --write *.js *.json src",
     "start": "react-native start",
     "test": "jest",
     "build:macos": "LOGFILE=/tmp/rngc-example-build-$(date +%s).log; react-native build-macos --mode Debug > $LOGFILE 2>&1 && echo \"BUILD SUCCEEDED — $LOGFILE\" || (echo \"BUILD FAILED — $LOGFILE\"; exit 1)",
@@ -35,7 +36,7 @@
     "@types/react-test-renderer": "^19.1.0",
     "eslint": "^8.19.0",
     "jest": "^29.6.3",
-    "prettier": "2.8.8",
+    "prettier": "3.x",
     "react-test-renderer": "19.1.0",
     "typescript": "^5.8.3"
   },

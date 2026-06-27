@@ -20,7 +20,9 @@ export function LogBox() {
       </View>
       <ScrollView ref={scrollRef} style={styles.scroll}>
         {lines.map((line, i) => (
-          <Text key={i} style={styles.line}>{line}</Text>
+          <Text key={i} style={styles.line}>
+            {line}
+          </Text>
         ))}
       </ScrollView>
     </View>
@@ -29,7 +31,13 @@ export function LogBox() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, borderWidth: 1, borderColor: '#555', borderRadius: 4 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', padding: 4, borderBottomWidth: 1, borderBottomColor: '#555' },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    padding: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#555',
+  },
   headerText: { color: '#aaa', fontSize: 12 },
   clearBtn: { color: '#6af', fontSize: 12 },
   scroll: { flex: 1, padding: 4 },

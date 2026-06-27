@@ -1,11 +1,11 @@
-import type { TurboModule } from "react-native";
-import { TurboModuleRegistry } from "react-native";
+import type { TurboModule } from 'react-native';
+import { TurboModuleRegistry } from 'react-native';
 import type {
   Double,
   EventEmitter,
   Float,
   Int32,
-} from "react-native/Libraries/Types/CodegenTypes";
+} from 'react-native/Libraries/Types/CodegenTypes';
 
 export interface LightColor {
   r: number;
@@ -71,12 +71,12 @@ export interface MouseMoveEvent {
 export type ControllerEventCallback = (
   controllerId: string,
   buttons: Int32,
-  lastUpdated: Double,
+  lastUpdated: Double
 ) => void;
 export type KeyboardEventCallback = (keyCode: Int32, pressed: boolean) => void;
 export type MouseButtonEventCallback = (
   button: number,
-  pressed: boolean,
+  pressed: boolean
 ) => void;
 export type MouseMoveEventCallback = (deltaX: Int32, deltaY: Int32) => void;
 
@@ -99,18 +99,18 @@ export interface Spec extends TurboModule {
   hasMouse(): Promise<boolean>;
 
   registerControllerEventCallback(
-    callback: ControllerEventCallback | null,
+    callback: ControllerEventCallback | null
   ): void;
   registerKeyboardEventCallback(callback: KeyboardEventCallback | null): void;
   registerMouseButtonEventCallback(
-    callback: MouseButtonEventCallback | null,
+    callback: MouseButtonEventCallback | null
   ): void;
   registerMouseMoveEventCallback(callback: MouseMoveEventCallback | null): void;
 
   _startControllerCapture(): Promise<InternalControllerSharedBuffers[]>;
   stopControllerCapture(): Promise<void>;
   toggleMouseMoveDeltaCollect(enable: boolean): void;
-  getMouseMoveDeltaAndReset(deltas: Object): void;
+  _getMouseMoveDeltaAndReset(deltas: Object): void;
 
   toggleControllerCurrentEvents(enable: boolean): void;
   toggleControllerButtonEvents(enable: boolean): void;
@@ -121,7 +121,7 @@ export interface Spec extends TurboModule {
     controllerId: string,
     r: number,
     g: number,
-    b: number,
+    b: number
   ): Promise<void>;
   setPlayerIndex(controllerId: string, index: number): Promise<void>;
   shouldMonitorBackgroundEvents(enable: boolean): Promise<void>;
@@ -140,5 +140,5 @@ export interface Spec extends TurboModule {
 }
 
 export const nativeModule = TurboModuleRegistry.getEnforcing<Spec>(
-  "GameControllerModule",
+  'GameControllerModule'
 );

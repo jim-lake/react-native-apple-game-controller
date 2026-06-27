@@ -2,13 +2,14 @@
 #import "RNGameController.h"
 #import <GameController/GameController.h>
 
+std::atomic<int32_t> g_mouseDeltaX{0};
+std::atomic<int32_t> g_mouseDeltaY{0};
+
 @implementation RNGCMouseHelper {
   std::shared_ptr<facebook::jsi::Function> _buttonCallback;
   std::shared_ptr<facebook::jsi::Function> _moveCallback;
   id _connectObserver;
   id _disconnectObserver;
-  std::atomic<int32_t> _deltaX;
-  std::atomic<int32_t> _deltaY;
   NSHashTable<GCMouse *> *_attachedMice;
 }
 
@@ -24,8 +25,6 @@
 - (instancetype)init {
   self = [super init];
   if (self) {
-    _deltaX.store(0);
-    _deltaY.store(0);
     _attachedMice = [NSHashTable weakObjectsHashTable];
   }
   return self;
@@ -80,8 +79,8 @@
     int32_t dy = (int32_t)deltaY;
 
     if (self.deltaCollectEnabled) {
-      self->_deltaX.fetch_add(dx, std::memory_order_relaxed);
-      self->_deltaY.fetch_add(dy, std::memory_order_relaxed);
+      g_mouseDeltaX.fetch_add(dx, std::memory_order_relaxed);
+      g_mouseDeltaY.fetch_add(dy, std::memory_order_relaxed);
     }
 
     if (self->_moveCallback) {
@@ -169,11 +168,6 @@
 
 - (std::shared_ptr<facebook::jsi::Function>)clearMoveCallback {
   return std::move(_moveCallback);
-}
-
-- (void)getDeltaAndReset:(int32_t *)outX y:(int32_t *)outY {
-  *outX = _deltaX.exchange(0, std::memory_order_relaxed);
-  *outY = _deltaY.exchange(0, std::memory_order_relaxed);
 }
 
 @end

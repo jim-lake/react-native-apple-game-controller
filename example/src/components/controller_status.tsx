@@ -52,17 +52,21 @@ export function ControllerStatus({ controllerId, pollingEnabled }: Props) {
         Buttons: 0b{(state.buttons >>> 0).toString(2).padStart(16, '0')}
       </Text>
       <Text style={styles.text}>
-        Analog: [{state.analog.map(v => v.toFixed(2)).join(', ')}]
+        Analog: [{state.analog.map((v) => v.toFixed(2)).join(', ')}]
       </Text>
-      <Text style={styles.text}>
-        Updated: {state.lastUpdated.toFixed(3)}
-      </Text>
+      <Text style={styles.text}>Updated: {state.lastUpdated.toFixed(3)}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 8, borderWidth: 1, borderColor: '#555', marginBottom: 8, borderRadius: 4 },
+  container: {
+    padding: 8,
+    borderWidth: 1,
+    borderColor: '#555',
+    marginBottom: 8,
+    borderRadius: 4,
+  },
   label: { fontSize: 12, color: '#aaa', marginBottom: 4 },
   text: { fontSize: 11, color: '#ccc', fontFamily: 'Menlo' },
 });

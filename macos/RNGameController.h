@@ -112,7 +112,7 @@ public:
   jsi::Value _startControllerCapture(jsi::Runtime &rt);
   jsi::Value stopControllerCapture(jsi::Runtime &rt);
   void toggleMouseMoveDeltaCollect(jsi::Runtime &rt, bool enable);
-  void getMouseMoveDeltaAndReset(jsi::Runtime &rt, jsi::Object deltas);
+  void _getMouseMoveDeltaAndReset(jsi::Runtime &rt, jsi::Object deltas);
   void toggleControllerCurrentEvents(jsi::Runtime &rt, bool enable);
   void toggleControllerButtonEvents(jsi::Runtime &rt, bool enable);
   void toggleKeyboardEvents(jsi::Runtime &rt, bool enable);

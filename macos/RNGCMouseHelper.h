@@ -9,6 +9,14 @@ namespace facebook::react {
 class RNGameController;
 }
 
+// Global mouse delta accumulators and polling function
+extern std::atomic<int32_t> g_mouseDeltaX;
+extern std::atomic<int32_t> g_mouseDeltaY;
+inline void getMouseMoveDeltaAndReset(int32_t deltas[2]) {
+  deltas[0] = g_mouseDeltaX.exchange(0, std::memory_order_relaxed);
+  deltas[1] = g_mouseDeltaY.exchange(0, std::memory_order_relaxed);
+}
+
 @interface RNGCMouseHelper : NSObject
 
 @property(nonatomic, assign) facebook::react::RNGameController *module;
@@ -23,6 +31,5 @@ class RNGameController;
 - (std::shared_ptr<facebook::jsi::Function>)clearButtonCallback;
 - (void)setMoveCallback:(std::shared_ptr<facebook::jsi::Function>)callback;
 - (std::shared_ptr<facebook::jsi::Function>)clearMoveCallback;
-- (void)getDeltaAndReset:(int32_t *)outX y:(int32_t *)outY;
 
 @end

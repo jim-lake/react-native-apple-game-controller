@@ -377,9 +377,19 @@ void RNGameController::toggleMouseMoveDeltaCollect(jsi::Runtime &rt,
   });
 }
 
-void RNGameController::getMouseMoveDeltaAndReset(jsi::Runtime &rt,
-                                                 jsi::Object deltas) {
-  // TODO: write accumulated deltas into buffer and reset
+void RNGameController::_getMouseMoveDeltaAndReset(jsi::Runtime &rt,
+                                                  jsi::Object deltas) {
+  if (!deltas.isArrayBuffer(rt)) {
+    throw jsi::JSError(
+        rt, "getMouseMoveDeltaAndReset: argument must be an ArrayBuffer");
+  }
+  auto buf = deltas.getArrayBuffer(rt);
+  if (buf.size(rt) < 8) {
+    throw jsi::JSError(
+        rt, "getMouseMoveDeltaAndReset: buffer must be at least 8 bytes");
+  }
+  int32_t *ptr = reinterpret_cast<int32_t *>(buf.data(rt));
+  ::getMouseMoveDeltaAndReset(ptr);
 }
 
 // MARK: - Toggles
