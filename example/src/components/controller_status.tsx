@@ -21,7 +21,9 @@ export function ControllerStatus({ controllerId, pollingEnabled }: Props) {
     addLine(`[poll] Started for ${controllerId.slice(0, 8)}`);
     let active = true;
     const poll = () => {
-      if (!active) return;
+      if (!active) {
+        return;
+      }
       try {
         setState(GameController.getControllerState(controllerId));
       } catch (e: any) {

@@ -6,6 +6,10 @@ import { addLine } from './log_store';
 import { ControllerStatus } from './components/controller_status';
 import { LogBox } from './components/log_box';
 
+import { startReportingRAF, cancelReportingRAF } from './tools/reporting_raf';
+
+const g_mouseBuffer = new Int32Array(2);
+
 function ToggleButton({
   label,
   onToggle,
@@ -38,27 +42,31 @@ function ToggleButton({
   );
 }
 
+function fpsReporter(fps: number) {
+  addLine(`[mouse-delta]: fps: ${fps}`);
+}
+
 function MouseDeltaPolling() {
   const [enabled, setEnabled] = useState(false);
   const enabledRef = React.useRef(false);
 
   useEffect(() => {
     enabledRef.current = enabled;
-    if (!enabled) return;
+    if (!enabled) {
+      return;
+    }
     GameController.toggleMouseMoveDeltaCollect(true);
-    const buf = new Int32Array(2);
-    let id: number;
-    const poll = () => {
-      if (!enabledRef.current) return;
-      GameController.getMouseMoveDeltaAndReset(buf);
-      if (buf[0] !== 0 || buf[1] !== 0) {
-        addLine(`[mouse-delta] dx=${buf[0]} dy=${buf[1]}`);
+    function work() {
+      GameController.getMouseMoveDeltaAndReset(g_mouseBuffer);
+      if (g_mouseBuffer[0] !== 0 || g_mouseBuffer[1] !== 0) {
+        addLine(`[mouse-delta] dx=${g_mouseBuffer[0]} dy=${g_mouseBuffer[1]}`);
       }
-      id = requestAnimationFrame(poll);
-    };
-    id = requestAnimationFrame(poll);
+    }
+    addLine(`[mouse-delta] start polling`);
+    const handle = startReportingRAF({ work, fpsReporter });
     return () => {
-      cancelAnimationFrame(id);
+      addLine(`[mouse-delta] stop polling`);
+      cancelReportingRAF(handle);
       GameController.toggleMouseMoveDeltaCollect(false);
     };
   }, [enabled]);
@@ -143,7 +151,9 @@ function App(): React.JSX.Element {
         }),
         GameController.onControllerButton((e) => {
           addLine(
-            `[btn] ${e.controllerId.slice(0, 8)} buttons=0x${(e.buttons >>> 0).toString(16)}`
+            `[btn] ${e.controllerId.slice(0, 8)} buttons=0x${(
+              e.buttons >>> 0
+            ).toString(16)}`
           );
         }),
         GameController.onKeyboardEvent((e) => {

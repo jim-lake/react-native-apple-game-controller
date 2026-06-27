@@ -1,31 +1,34 @@
 import { useSyncExternalStore } from 'react';
 
-let lines: string[] = [];
-const listeners = new Set<() => void>();
+const g_consoleEnabled = false;
+let g_lines: string[] = [];
+const g_listeners = new Set<() => void>();
 
 function _notify() {
-  for (const listener of listeners) {
+  for (const listener of g_listeners) {
     listener();
   }
 }
 
 function _subscribe(listener: () => void) {
-  listeners.add(listener);
-  return () => listeners.delete(listener);
+  g_listeners.add(listener);
+  return () => g_listeners.delete(listener);
 }
 
 function _getSnapshot() {
-  return lines;
+  return g_lines;
 }
 
 export function addLine(line: string) {
-  console.log(line);
-  lines = [line, ...lines];
+  if (g_consoleEnabled) {
+    console.log(line);
+  }
+  g_lines = [line, ...g_lines];
   _notify();
 }
 
 export function clearLog() {
-  lines = [];
+  g_lines = [];
   _notify();
 }
 

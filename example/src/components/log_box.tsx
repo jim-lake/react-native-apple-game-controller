@@ -14,7 +14,8 @@ export function LogBox() {
         </Pressable>
       </View>
       <FlatList
-        inverted
+        //inverted
+        contentContainerStyle={styles.listContainer}
         data={lines}
         keyExtractor={(_, i) => String(i)}
         renderItem={({ item }) => <Text style={styles.line}>{item}</Text>}
@@ -25,7 +26,14 @@ export function LogBox() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, borderWidth: 1, borderColor: '#555', borderRadius: 4 },
+  container: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#555',
+    borderRadius: 4,
+    flexDirection: 'column',
+    alignSelf: 'stretch',
+  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -35,6 +43,12 @@ const styles = StyleSheet.create({
   },
   headerText: { color: '#aaa', fontSize: 12 },
   clearBtn: { color: '#6af', fontSize: 12 },
-  list: { flex: 1, padding: 4 },
-  line: { fontSize: 10, color: '#ccc', fontFamily: 'Menlo' },
+  list: { flex: 1, padding: 4, transform: [{ scaleY: -1 }] },
+  listContainer: { flexDirection: 'column', paddingTop: 20 },
+  line: {
+    fontSize: 10,
+    color: '#ccc',
+    fontFamily: 'Menlo',
+    transform: [{ scaleY: -1 }],
+  },
 });

@@ -13,6 +13,7 @@ export default [
       ...reactHooks.configs.recommended.rules,
       'react/react-in-jsx-scope': 'off',
       '@typescript-eslint/no-explicit-any': 'off',
+      'curly': 'error',
     },
     settings: { react: { version: 'detect' } },
   },
