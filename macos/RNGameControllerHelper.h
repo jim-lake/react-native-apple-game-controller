@@ -5,6 +5,7 @@
 #include <atomic>
 #include <jsi/jsi.h>
 #include <string>
+#include <unordered_map>
 
 namespace facebook::react {
 class RNGameController;
@@ -45,7 +46,7 @@ struct ControllerEntry {
 - (void)stop;
 - (void)toggleCurrentEvents:(bool)enable;
 - (ControllerEntry *)findEntryById:(const std::string &)controllerId;
-- (NSArray<NSValue *> *)entries;
+- (const std::unordered_map<std::string, ControllerEntry *> &)entries;
 - (void)setEventCallback:(std::shared_ptr<facebook::jsi::Function>)callback;
 - (std::shared_ptr<facebook::jsi::Function>)clearEventCallback;
 

@@ -45,11 +45,11 @@ jsi::Value RNGameController::getControllers(jsi::Runtime &rt) {
                                             std::shared_ptr<Promise> promise) {
     dispatch_async(dispatch_get_main_queue(), ^{
       auto *helper = [RNGameControllerHelper shared];
-      NSArray<NSValue *> *entries = [helper entries];
+      const auto &entries = [helper entries];
 
       NSMutableArray *results = [NSMutableArray array];
-      for (NSValue *v in entries) {
-        auto *entry = (ControllerEntry *)v.pointerValue;
+      for (auto &pair : entries) {
+        auto *entry = pair.second;
         GCController *c = entry->controller;
         NSMutableDictionary *info = [NSMutableDictionary dictionary];
         info[@"controllerId"] =

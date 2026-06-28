@@ -4,8 +4,7 @@
 
 @implementation RNGameControllerHelper {
   std::shared_ptr<facebook::jsi::Function> _eventCallback;
-  NSMutableArray<NSValue *> *_controllerEntries;
-  NSMutableDictionary<NSString *, NSValue *> *_uuidToController;
+  std::unordered_map<std::string, ControllerEntry *> _entries;
   NSMapTable<GCController *, NSString *> *_controllerToUuid;
   id _connectObserver;
   id _disconnectObserver;
@@ -25,8 +24,6 @@
 - (instancetype)init {
   self = [super init];
   if (self) {
-    _controllerEntries = [NSMutableArray array];
-    _uuidToController = [NSMutableDictionary dictionary];
     _controllerToUuid = [NSMapTable strongToStrongObjectsMapTable];
   }
   return self;
@@ -305,9 +302,13 @@
 }
 
 - (void)stop {
-  for (NSValue *v in [_controllerEntries copy]) {
-    auto *e = (ControllerEntry *)v.pointerValue;
-    [self _controllerDisconnected:e->controller];
+  // Copy keys since _controllerDisconnected mutates _entries
+  std::vector<GCController *> controllers;
+  for (auto &pair : _entries) {
+    controllers.push_back(pair.second->controller);
+  }
+  for (GCController *c : controllers) {
+    [self _controllerDisconnected:c];
   }
   if (_connectObserver) {
     [[NSNotificationCenter defaultCenter] removeObserver:_connectObserver];
@@ -361,9 +362,7 @@
   entry->controller = controller;
   [self _assignProfile:entry controller:controller];
 
-  [_controllerEntries addObject:[NSValue valueWithPointer:entry]];
-  _uuidToController[uuid] =
-      [NSValue valueWithPointer:(__bridge void *)controller];
+  _entries[cid] = entry;
   [_controllerToUuid setObject:uuid forKey:controller];
 
   if (self.module) {
@@ -378,20 +377,16 @@
   }
 
   std::string cid = [uuid UTF8String];
-
-  for (NSInteger i = 0; i < (NSInteger)_controllerEntries.count; i++) {
-    auto *e = (ControllerEntry *)_controllerEntries[i].pointerValue;
-    if (e->controllerId == cid) {
-      if (e->controller.extendedGamepad) {
-        e->controller.extendedGamepad.valueChangedHandler = nil;
-      }
-      delete e;
-      [_controllerEntries removeObjectAtIndex:i];
-      break;
+  auto it = _entries.find(cid);
+  if (it != _entries.end()) {
+    auto *e = it->second;
+    if (e->controller.extendedGamepad) {
+      e->controller.extendedGamepad.valueChangedHandler = nil;
     }
+    delete e;
+    _entries.erase(it);
   }
 
-  [_uuidToController removeObjectForKey:uuid];
   [_controllerToUuid removeObjectForKey:controller];
 
   if (self.module) {
@@ -402,23 +397,12 @@
 // MARK: - Queries
 
 - (ControllerEntry *)findEntryById:(const std::string &)controllerId {
-  NSString *uuid = [NSString stringWithUTF8String:controllerId.c_str()];
-  NSValue *v = _uuidToController[uuid];
-  if (!v) {
-    return nullptr;
-  }
-  GCController *controller = (__bridge GCController *)v.pointerValue;
-  for (NSValue *ev in _controllerEntries) {
-    auto *e = (ControllerEntry *)ev.pointerValue;
-    if (e->controller == controller) {
-      return e;
-    }
-  }
-  return nullptr;
+  auto it = _entries.find(controllerId);
+  return it != _entries.end() ? it->second : nullptr;
 }
 
-- (NSArray<NSValue *> *)entries {
-  return _controllerEntries;
+- (const std::unordered_map<std::string, ControllerEntry *> &)entries {
+  return _entries;
 }
 
 // MARK: - Callback
