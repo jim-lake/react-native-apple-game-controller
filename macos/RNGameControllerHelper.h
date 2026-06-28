@@ -5,7 +5,6 @@
 #include <atomic>
 #include <jsi/jsi.h>
 #include <string>
-#include <unordered_map>
 
 namespace facebook::react {
 class RNGameController;
@@ -36,21 +35,18 @@ struct ControllerEntry {
 
 // MARK: - Singleton Helper
 
-@interface RNGameControllerHelper : NSObject {
-@public
-  std::shared_ptr<facebook::jsi::Function> _eventCallback;
-}
+@interface RNGameControllerHelper : NSObject
 
 @property(nonatomic, assign) facebook::react::RNGameController *module;
+@property(nonatomic, assign) bool buttonEventsEnabled;
 
 + (instancetype)shared;
-
+- (void)start;
+- (void)stop;
+- (void)toggleCurrentEvents:(bool)enable;
 - (ControllerEntry *)findEntryById:(const std::string &)controllerId;
 - (NSArray<NSValue *> *)entries;
 - (void)setEventCallback:(std::shared_ptr<facebook::jsi::Function>)callback;
 - (std::shared_ptr<facebook::jsi::Function>)clearEventCallback;
 
 @end
-
-void setupNotifications(void);
-void toggleCurrentNotifications(bool enable);

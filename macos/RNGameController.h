@@ -125,7 +125,6 @@ public:
   jsi::Value shouldMonitorBackgroundEvents(jsi::Runtime &rt, bool enable);
 
   std::shared_ptr<CallInvoker> jsInvoker_;
-  bool buttonEventsEnabled_{false};
 };
 
 } // namespace facebook::react

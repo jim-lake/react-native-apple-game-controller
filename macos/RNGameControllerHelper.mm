@@ -2,19 +2,40 @@
 #import "RNGameController.h"
 #import <GameController/GameController.h>
 
-// MARK: - Storage
+@implementation RNGameControllerHelper {
+  std::shared_ptr<facebook::jsi::Function> _eventCallback;
+  NSMutableArray<NSValue *> *_controllerEntries;
+  NSMutableDictionary<NSString *, NSValue *> *_uuidToController;
+  NSMapTable<GCController *, NSString *> *_controllerToUuid;
+  id _connectObserver;
+  id _disconnectObserver;
+  id _currentObserver;
+  id _stopCurrentObserver;
+}
 
-static NSMutableArray<NSValue *> *sControllerEntries = nil;
-static NSMutableDictionary<NSString *, NSValue *> *sUuidToController = nil;
-static NSMapTable<GCController *, NSString *> *sControllerToUuid = nil;
-static id sConnectObserver = nil;
-static id sDisconnectObserver = nil;
-static id sCurrentObserver = nil;
-static id sStopCurrentObserver = nil;
++ (instancetype)shared {
+  static RNGameControllerHelper *instance = nil;
+  static dispatch_once_t onceToken;
+  dispatch_once(&onceToken, ^{
+    instance = [[RNGameControllerHelper alloc] init];
+  });
+  return instance;
+}
+
+- (instancetype)init {
+  self = [super init];
+  if (self) {
+    _controllerEntries = [NSMutableArray array];
+    _uuidToController = [NSMutableDictionary dictionary];
+    _controllerToUuid = [NSMapTable strongToStrongObjectsMapTable];
+  }
+  return self;
+}
 
 // MARK: - Profile Assignment
 
-static void assignProfile(ControllerEntry *entry, GCController *controller) {
+- (void)_assignProfile:(ControllerEntry *)entry
+            controller:(GCController *)controller {
   GCExtendedGamepad *gp = controller.extendedGamepad;
   if (!gp) {
     entry->analogCount = 0;
@@ -235,11 +256,10 @@ static void assignProfile(ControllerEntry *entry, GCController *controller) {
     uint32_t prev = cs->buttons.exchange(bval);
     cs->lastUpdated.store(CACurrentMediaTime());
     if (prev != bval) {
-      auto *helper = [RNGameControllerHelper shared];
-      if (helper.module) {
-        if (helper->_eventCallback) {
-          auto cb = helper->_eventCallback;
-          auto invoker = helper.module->jsInvoker_;
+      if (self.module) {
+        if (self->_eventCallback) {
+          auto cb = self->_eventCallback;
+          auto invoker = self.module->jsInvoker_;
           invoker->invokeAsync([cb, cs, cid](facebook::jsi::Runtime &rt) {
             uint32_t b = cs->buttons.load(std::memory_order_relaxed);
             uint32_t lastCb =
@@ -251,155 +271,144 @@ static void assignProfile(ControllerEntry *entry, GCController *controller) {
             }
           });
         }
-        if (helper.module->buttonEventsEnabled_) {
+        if (self.buttonEventsEnabled) {
           facebook::react::ControllerButtonEventStruct evt{
               cid, (double)bval, CACurrentMediaTime()};
-          helper.module->emitOnControllerButton(evt);
+          self.module->emitOnControllerButton(evt);
         }
       }
     }
   };
 }
 
-// MARK: - Controller Lifecycle
+// MARK: - Lifecycle
 
-static void controllerConnected(GCController *controller) {
+- (void)start {
+  for (GCController *c in [GCController controllers]) {
+    [self _controllerConnected:c];
+  }
+
+  _connectObserver = [[NSNotificationCenter defaultCenter]
+      addObserverForName:GCControllerDidConnectNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                [self _controllerConnected:(GCController *)note.object];
+              }];
+  _disconnectObserver = [[NSNotificationCenter defaultCenter]
+      addObserverForName:GCControllerDidDisconnectNotification
+                  object:nil
+                   queue:[NSOperationQueue mainQueue]
+              usingBlock:^(NSNotification *note) {
+                [self _controllerDisconnected:(GCController *)note.object];
+              }];
+}
+
+- (void)stop {
+  for (NSValue *v in [_controllerEntries copy]) {
+    auto *e = (ControllerEntry *)v.pointerValue;
+    [self _controllerDisconnected:e->controller];
+  }
+  if (_connectObserver) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_connectObserver];
+    _connectObserver = nil;
+  }
+  if (_disconnectObserver) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_disconnectObserver];
+    _disconnectObserver = nil;
+  }
+  [self toggleCurrentEvents:false];
+}
+
+- (void)toggleCurrentEvents:(bool)enable {
+  if (enable && !_currentObserver) {
+    _currentObserver = [[NSNotificationCenter defaultCenter]
+        addObserverForName:GCControllerDidBecomeCurrentNotification
+                    object:nil
+                     queue:[NSOperationQueue mainQueue]
+                usingBlock:^(NSNotification *note) {
+                  GCController *controller = note.object;
+                  NSString *uuid =
+                      [self->_controllerToUuid objectForKey:controller];
+                  if (!uuid) {
+                    return;
+                  }
+                  if (self.module) {
+                    self.module->emitOnControllerCurrentChange(
+                        std::string([uuid UTF8String]));
+                  }
+                }];
+    _stopCurrentObserver = [[NSNotificationCenter defaultCenter]
+        addObserverForName:GCControllerDidStopBeingCurrentNotification
+                    object:nil
+                     queue:[NSOperationQueue mainQueue]
+                usingBlock:^(NSNotification *note){
+                }];
+  } else if (!enable && _currentObserver) {
+    [[NSNotificationCenter defaultCenter] removeObserver:_currentObserver];
+    [[NSNotificationCenter defaultCenter] removeObserver:_stopCurrentObserver];
+    _currentObserver = nil;
+    _stopCurrentObserver = nil;
+  }
+}
+
+- (void)_controllerConnected:(GCController *)controller {
   NSString *uuid = [[NSUUID UUID] UUIDString];
   std::string cid = [uuid UTF8String];
 
   auto *entry = new ControllerEntry();
   entry->controllerId = cid;
   entry->controller = controller;
-  assignProfile(entry, controller);
+  [self _assignProfile:entry controller:controller];
 
-  if (!sControllerEntries) {
-    sControllerEntries = [NSMutableArray array];
-    sUuidToController = [NSMutableDictionary dictionary];
-    sControllerToUuid = [NSMapTable strongToStrongObjectsMapTable];
-  }
-
-  [sControllerEntries addObject:[NSValue valueWithPointer:entry]];
-  sUuidToController[uuid] =
+  [_controllerEntries addObject:[NSValue valueWithPointer:entry]];
+  _uuidToController[uuid] =
       [NSValue valueWithPointer:(__bridge void *)controller];
-  [sControllerToUuid setObject:uuid forKey:controller];
+  [_controllerToUuid setObject:uuid forKey:controller];
 
-  auto *helper = [RNGameControllerHelper shared];
-  if (helper.module) {
-    helper.module->emitOnControllerConnected(cid);
+  if (self.module) {
+    self.module->emitOnControllerConnected(cid);
   }
 }
 
-static void controllerDisconnected(GCController *controller) {
-  NSString *uuid = [sControllerToUuid objectForKey:controller];
+- (void)_controllerDisconnected:(GCController *)controller {
+  NSString *uuid = [_controllerToUuid objectForKey:controller];
   if (!uuid) {
     return;
   }
 
   std::string cid = [uuid UTF8String];
 
-  for (NSInteger i = 0; i < (NSInteger)sControllerEntries.count; i++) {
-    auto *e = (ControllerEntry *)sControllerEntries[i].pointerValue;
+  for (NSInteger i = 0; i < (NSInteger)_controllerEntries.count; i++) {
+    auto *e = (ControllerEntry *)_controllerEntries[i].pointerValue;
     if (e->controllerId == cid) {
+      if (e->controller.extendedGamepad) {
+        e->controller.extendedGamepad.valueChangedHandler = nil;
+      }
       delete e;
-      [sControllerEntries removeObjectAtIndex:i];
+      [_controllerEntries removeObjectAtIndex:i];
       break;
     }
   }
 
-  [sUuidToController removeObjectForKey:uuid];
-  [sControllerToUuid removeObjectForKey:controller];
+  [_uuidToController removeObjectForKey:uuid];
+  [_controllerToUuid removeObjectForKey:controller];
 
-  auto *helper = [RNGameControllerHelper shared];
-  if (helper.module) {
-    helper.module->emitOnControllerDisconnected(cid);
+  if (self.module) {
+    self.module->emitOnControllerDisconnected(cid);
   }
 }
 
-void setupNotifications() {
-  if (sConnectObserver) {
-    return;
-  }
-  if (!sControllerEntries) {
-    sControllerEntries = [NSMutableArray array];
-    sUuidToController = [NSMutableDictionary dictionary];
-    sControllerToUuid = [NSMapTable strongToStrongObjectsMapTable];
-  }
-
-  sConnectObserver = [[NSNotificationCenter defaultCenter]
-      addObserverForName:GCControllerDidConnectNotification
-                  object:nil
-                   queue:[NSOperationQueue mainQueue]
-              usingBlock:^(NSNotification *note) {
-                controllerConnected((GCController *)note.object);
-              }];
-  sDisconnectObserver = [[NSNotificationCenter defaultCenter]
-      addObserverForName:GCControllerDidDisconnectNotification
-                  object:nil
-                   queue:[NSOperationQueue mainQueue]
-              usingBlock:^(NSNotification *note) {
-                controllerDisconnected((GCController *)note.object);
-              }];
-
-  for (GCController *c in [GCController controllers]) {
-    controllerConnected(c);
-  }
-}
-
-void toggleCurrentNotifications(bool enable) {
-  if (enable && !sCurrentObserver) {
-    sCurrentObserver = [[NSNotificationCenter defaultCenter]
-        addObserverForName:GCControllerDidBecomeCurrentNotification
-                    object:nil
-                     queue:[NSOperationQueue mainQueue]
-                usingBlock:^(NSNotification *note) {
-                  GCController *controller = note.object;
-                  NSString *uuid = [sControllerToUuid objectForKey:controller];
-                  if (!uuid) {
-                    return;
-                  }
-                  auto *helper = [RNGameControllerHelper shared];
-                  if (helper.module) {
-                    helper.module->emitOnControllerCurrentChange(
-                        std::string([uuid UTF8String]));
-                  }
-                }];
-    sStopCurrentObserver = [[NSNotificationCenter defaultCenter]
-        addObserverForName:GCControllerDidStopBeingCurrentNotification
-                    object:nil
-                     queue:[NSOperationQueue mainQueue]
-                usingBlock:^(NSNotification *note){
-                    // The "become current" notification on the new controller
-                    // handles emitting the change; nothing needed here.
-                }];
-  } else if (!enable && sCurrentObserver) {
-    [[NSNotificationCenter defaultCenter] removeObserver:sCurrentObserver];
-    [[NSNotificationCenter defaultCenter] removeObserver:sStopCurrentObserver];
-    sCurrentObserver = nil;
-    sStopCurrentObserver = nil;
-  }
-}
-
-// MARK: - RNGameControllerHelper
-
-@implementation RNGameControllerHelper
-
-+ (instancetype)shared {
-  static RNGameControllerHelper *instance = nil;
-  static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    instance = [[RNGameControllerHelper alloc] init];
-  });
-  return instance;
-}
+// MARK: - Queries
 
 - (ControllerEntry *)findEntryById:(const std::string &)controllerId {
   NSString *uuid = [NSString stringWithUTF8String:controllerId.c_str()];
-  NSValue *v = sUuidToController[uuid];
+  NSValue *v = _uuidToController[uuid];
   if (!v) {
     return nullptr;
   }
   GCController *controller = (__bridge GCController *)v.pointerValue;
-  for (NSValue *ev in sControllerEntries) {
+  for (NSValue *ev in _controllerEntries) {
     auto *e = (ControllerEntry *)ev.pointerValue;
     if (e->controller == controller) {
       return e;
@@ -409,8 +418,10 @@ void toggleCurrentNotifications(bool enable) {
 }
 
 - (NSArray<NSValue *> *)entries {
-  return sControllerEntries ?: @[];
+  return _controllerEntries;
 }
+
+// MARK: - Callback
 
 - (void)setEventCallback:(std::shared_ptr<facebook::jsi::Function>)callback {
   _eventCallback = std::move(callback);

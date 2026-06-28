@@ -14,7 +14,7 @@ RNGameController::RNGameController(std::shared_ptr<CallInvoker> jsInvoker)
     [RNGameControllerHelper shared].module = this;
     [RNGCKeyboardHelper shared].module = this;
     [RNGCMouseHelper shared].module = this;
-    setupNotifications();
+    [[RNGameControllerHelper shared] start];
     [[RNGCKeyboardHelper shared] start];
     [[RNGCMouseHelper shared] start];
   });
@@ -24,6 +24,7 @@ RNGameController::~RNGameController() {
   auto *ptr = this;
   dispatch_async(dispatch_get_main_queue(), ^{
     if ([RNGameControllerHelper shared].module == ptr) {
+      [[RNGameControllerHelper shared] stop];
       [RNGameControllerHelper shared].module = nullptr;
     }
     if ([RNGCKeyboardHelper shared].module == ptr) {
@@ -408,13 +409,15 @@ void RNGameController::_getMouseMoveDeltaAndReset(jsi::Runtime &rt,
 void RNGameController::toggleControllerCurrentEvents(jsi::Runtime &rt,
                                                      bool enable) {
   dispatch_async(dispatch_get_main_queue(), ^{
-    toggleCurrentNotifications(enable);
+    [[RNGameControllerHelper shared] toggleCurrentEvents:enable];
   });
 }
 
 void RNGameController::toggleControllerButtonEvents(jsi::Runtime &rt,
                                                     bool enable) {
-  buttonEventsEnabled_ = enable;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    [RNGameControllerHelper shared].buttonEventsEnabled = enable;
+  });
 }
 
 void RNGameController::toggleKeyboardEvents(jsi::Runtime &rt, bool enable) {
