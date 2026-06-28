@@ -297,7 +297,18 @@ jsi::Value RNGameController::hasMouse(jsi::Runtime &rt) {
 
 void RNGameController::registerControllerEventCallback(
     jsi::Runtime &rt, std::optional<jsi::Function> callback) {
-  // TODO: implement via controller helper on main thread
+  auto cb = callback.has_value()
+                ? std::make_shared<jsi::Function>(std::move(*callback))
+                : nullptr;
+  dispatch_async(dispatch_get_main_queue(), ^{
+    auto old = [[RNGameControllerHelper shared] clearEventCallback];
+    if (old) {
+      jsInvoker_->invokeAsync([old](jsi::Runtime &rt) mutable { old.reset(); });
+    }
+    if (cb) {
+      [[RNGameControllerHelper shared] setEventCallback:std::move(cb)];
+    }
+  });
 }
 
 void RNGameController::registerKeyboardEventCallback(
@@ -396,7 +407,9 @@ void RNGameController::_getMouseMoveDeltaAndReset(jsi::Runtime &rt,
 
 void RNGameController::toggleControllerCurrentEvents(jsi::Runtime &rt,
                                                      bool enable) {
-  // TODO: implement current controller change events
+  dispatch_async(dispatch_get_main_queue(), ^{
+    toggleCurrentNotifications(enable);
+  });
 }
 
 void RNGameController::toggleControllerButtonEvents(jsi::Runtime &rt,

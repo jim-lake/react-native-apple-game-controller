@@ -9,6 +9,8 @@ static NSMutableDictionary<NSString *, NSValue *> *sUuidToController = nil;
 static NSMapTable<GCController *, NSString *> *sControllerToUuid = nil;
 static id sConnectObserver = nil;
 static id sDisconnectObserver = nil;
+static id sCurrentObserver = nil;
+static id sStopCurrentObserver = nil;
 
 // MARK: - Profile Assignment
 
@@ -235,6 +237,20 @@ static void assignProfile(ControllerEntry *entry, GCController *controller) {
     if (prev != bval) {
       auto *helper = [RNGameControllerHelper shared];
       if (helper.module) {
+        if (helper->_eventCallback) {
+          auto cb = helper->_eventCallback;
+          auto invoker = helper.module->jsInvoker_;
+          invoker->invokeAsync([cb, cs, cid](facebook::jsi::Runtime &rt) {
+            uint32_t b = cs->buttons.load(std::memory_order_relaxed);
+            uint32_t lastCb =
+                cs->lastCallbackButtons.exchange(b, std::memory_order_relaxed);
+            if (b != lastCb) {
+              double ts = cs->lastUpdated.load(std::memory_order_relaxed);
+              cb->call(rt, facebook::jsi::String::createFromUtf8(rt, cid),
+                       static_cast<int>(b), ts);
+            }
+          });
+        }
         if (helper.module->buttonEventsEnabled_) {
           facebook::react::ControllerButtonEventStruct evt{
               cid, (double)bval, CACurrentMediaTime()};
@@ -329,6 +345,40 @@ void setupNotifications() {
   }
 }
 
+void toggleCurrentNotifications(bool enable) {
+  if (enable && !sCurrentObserver) {
+    sCurrentObserver = [[NSNotificationCenter defaultCenter]
+        addObserverForName:GCControllerDidBecomeCurrentNotification
+                    object:nil
+                     queue:[NSOperationQueue mainQueue]
+                usingBlock:^(NSNotification *note) {
+                  GCController *controller = note.object;
+                  NSString *uuid = [sControllerToUuid objectForKey:controller];
+                  if (!uuid) {
+                    return;
+                  }
+                  auto *helper = [RNGameControllerHelper shared];
+                  if (helper.module) {
+                    helper.module->emitOnControllerCurrentChange(
+                        std::string([uuid UTF8String]));
+                  }
+                }];
+    sStopCurrentObserver = [[NSNotificationCenter defaultCenter]
+        addObserverForName:GCControllerDidStopBeingCurrentNotification
+                    object:nil
+                     queue:[NSOperationQueue mainQueue]
+                usingBlock:^(NSNotification *note){
+                    // The "become current" notification on the new controller
+                    // handles emitting the change; nothing needed here.
+                }];
+  } else if (!enable && sCurrentObserver) {
+    [[NSNotificationCenter defaultCenter] removeObserver:sCurrentObserver];
+    [[NSNotificationCenter defaultCenter] removeObserver:sStopCurrentObserver];
+    sCurrentObserver = nil;
+    sStopCurrentObserver = nil;
+  }
+}
+
 // MARK: - RNGameControllerHelper
 
 @implementation RNGameControllerHelper
@@ -343,26 +393,31 @@ void setupNotifications() {
 }
 
 - (ControllerEntry *)findEntryById:(const std::string &)controllerId {
-  for (NSValue *v in sControllerEntries) {
-    auto *e = (ControllerEntry *)v.pointerValue;
-    if (e->controllerId == controllerId) {
+  NSString *uuid = [NSString stringWithUTF8String:controllerId.c_str()];
+  NSValue *v = sUuidToController[uuid];
+  if (!v) {
+    return nullptr;
+  }
+  GCController *controller = (__bridge GCController *)v.pointerValue;
+  for (NSValue *ev in sControllerEntries) {
+    auto *e = (ControllerEntry *)ev.pointerValue;
+    if (e->controller == controller) {
       return e;
     }
   }
   return nullptr;
 }
 
-- (ControllerEntry *)findEntryByController:(GCController *)controller {
-  NSString *uuid = [sControllerToUuid objectForKey:controller];
-  if (!uuid) {
-    return nullptr;
-  }
-  std::string cid = [uuid UTF8String];
-  return [self findEntryById:cid];
-}
-
 - (NSArray<NSValue *> *)entries {
   return sControllerEntries ?: @[];
+}
+
+- (void)setEventCallback:(std::shared_ptr<facebook::jsi::Function>)callback {
+  _eventCallback = std::move(callback);
+}
+
+- (std::shared_ptr<facebook::jsi::Function>)clearEventCallback {
+  return std::move(_eventCallback);
 }
 
 @end
