@@ -4,6 +4,8 @@
 
 std::atomic<int32_t> g_mouseDeltaX{0};
 std::atomic<int32_t> g_mouseDeltaY{0};
+static std::atomic<int32_t> g_mouseCallbackDeltaX{0};
+static std::atomic<int32_t> g_mouseCallbackDeltaY{0};
 
 @implementation RNGCMouseHelper {
   std::shared_ptr<facebook::jsi::Function> _buttonCallback;
@@ -84,9 +86,17 @@ std::atomic<int32_t> g_mouseDeltaY{0};
     }
 
     if (self->_moveCallback) {
+      g_mouseCallbackDeltaX.fetch_add(dx, std::memory_order_relaxed);
+      g_mouseCallbackDeltaY.fetch_add(dy, std::memory_order_relaxed);
       auto cb = self->_moveCallback;
       self.module->jsInvoker_->invokeAsync(
-          [cb, dx, dy](facebook::jsi::Runtime &rt) { cb->call(rt, dx, dy); });
+          [cb](facebook::jsi::Runtime &rt) {
+            int32_t cdx = g_mouseCallbackDeltaX.exchange(0, std::memory_order_relaxed);
+            int32_t cdy = g_mouseCallbackDeltaY.exchange(0, std::memory_order_relaxed);
+            if (cdx != 0 || cdy != 0) {
+              cb->call(rt, cdx, cdy);
+            }
+          });
     }
 
     if (self.moveEventsEnabled) {
