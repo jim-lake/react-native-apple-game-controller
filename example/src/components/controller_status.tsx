@@ -5,7 +5,7 @@ import type { ControllerState } from 'react-native-apple-game-controller';
 import { addLine } from '../log_store';
 
 interface Props {
-  controllerId: string;
+  controllerId: number;
   pollingEnabled: boolean;
 }
 
@@ -15,10 +15,10 @@ export function ControllerStatus({ controllerId, pollingEnabled }: Props) {
 
   useEffect(() => {
     if (!pollingEnabled) {
-      addLine(`[poll] Stopped for ${controllerId.slice(0, 8)}`);
+      addLine(`[poll] Stopped for ${controllerId}`);
       return;
     }
-    addLine(`[poll] Started for ${controllerId.slice(0, 8)}`);
+    addLine(`[poll] Started for ${controllerId}`);
     let active = true;
     const poll = () => {
       if (!active) {
@@ -49,7 +49,7 @@ export function ControllerStatus({ controllerId, pollingEnabled }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Controller: {controllerId.slice(0, 8)}…</Text>
+      <Text style={styles.label}>Controller: {controllerId}</Text>
       <Text style={styles.text}>
         Buttons: 0b{(state.buttons >>> 0).toString(2).padStart(16, '0')}
       </Text>

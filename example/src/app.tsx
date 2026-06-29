@@ -65,7 +65,7 @@ function App(): React.JSX.Element {
         }),
         GameController.onControllerButton((e) => {
           addLine(
-            `[btn] ${e.controllerId.slice(0, 8)} buttons=0x${(e.buttons >>> 0).toString(16)}`
+            `[btn] ${e.controllerId} buttons=0x${(e.buttons >>> 0).toString(16)}`
           );
         }),
         GameController.onKeyboardEvent((e) => {
