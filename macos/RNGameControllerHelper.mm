@@ -259,8 +259,6 @@
         break;
       }
     }
-    // Also map the dpad itself so when the dpad element fires we can update all
-    // 4 Store negative base index to signal "dpad" in the handler
   }
 
   // Map axes/dpads to analog indices

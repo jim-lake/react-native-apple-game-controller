@@ -4,7 +4,6 @@
 #import <GameController/GameController.h>
 #include <atomic>
 #include <jsi/jsi.h>
-#include <string>
 #include <unordered_map>
 
 namespace facebook::react {
