@@ -214,7 +214,7 @@
 
   entry->analogCount = analogIdx;
   for (int i = 0; i < kMaxAnalog; i++) {
-    entry->state.analog[i].store(0.0f);
+    entry->state->analog[i].store(0.0f);
   }
   entry->buttonInfos = buttons;
   entry->axisInfos = axes;
@@ -283,10 +283,12 @@
   }
 
   int cid = entry->controllerId;
-  ControllerState *cs = &entry->state;
+  auto sharedState = entry->state;
+  ControllerState *cs = sharedState.get();
 
   profile.valueDidChangeHandler = ^(GCPhysicalInputProfile *p,
                                     GCControllerElement *element) {
+    (void)sharedState; // prevent release while handler is live
     bool buttonChanged = false;
 
     // Check if this element is an axis/dpad — O(1) lookup

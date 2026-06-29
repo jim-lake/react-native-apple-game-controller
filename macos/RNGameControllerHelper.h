@@ -26,11 +26,13 @@ struct ControllerState {
 struct ControllerEntry {
   int controllerId;
   __strong GCController *controller;
-  ControllerState state;
+  std::shared_ptr<ControllerState> state;
   int analogCount;
   NSArray<NSDictionary *> *buttonInfos;
   NSArray<NSDictionary *> *axisInfos;
   NSArray<NSDictionary *> *dpadInfos;
+
+  ControllerEntry() : state(std::make_shared<ControllerState>()) {}
 };
 
 // MARK: - Singleton Helper

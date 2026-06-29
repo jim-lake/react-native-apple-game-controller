@@ -7,6 +7,21 @@
 
 namespace facebook::react {
 
+// Non-owning MutableBuffer wrapping existing memory
+class ExternalBuffer : public jsi::MutableBuffer {
+public:
+  ExternalBuffer(uint8_t *data, size_t size,
+                 std::shared_ptr<ControllerState> owner)
+      : data_(data), size_(size), owner_(std::move(owner)) {}
+  size_t size() const override { return size_; }
+  uint8_t *data() override { return data_; }
+
+private:
+  uint8_t *data_;
+  size_t size_;
+  std::shared_ptr<ControllerState> owner_;
+};
+
 RNGameController::RNGameController(std::shared_ptr<CallInvoker> jsInvoker)
     : NativeGameControllerCxxSpec(std::move(jsInvoker)) {
   jsInvoker_ = NativeGameControllerCxxSpec::jsInvoker_;
@@ -250,14 +265,14 @@ jsi::Object RNGameController::getControllerState(jsi::Runtime &rt,
     for (int i = 0; i < count; i++) {
       analog.setValueAtIndex(
           rt, i,
-          (double)entry->state.analog[i].load(std::memory_order_relaxed));
+          (double)entry->state->analog[i].load(std::memory_order_relaxed));
     }
     obj.setProperty(rt, "analog", std::move(analog));
     obj.setProperty(
         rt, "buttons",
-        (double)entry->state.buttons.load(std::memory_order_relaxed));
+        (double)entry->state->buttons.load(std::memory_order_relaxed));
     obj.setProperty(rt, "lastUpdated",
-                    entry->state.lastUpdated.load(std::memory_order_relaxed));
+                    entry->state->lastUpdated.load(std::memory_order_relaxed));
     return obj;
   }
   auto obj = jsi::Object(rt);
@@ -360,16 +375,60 @@ void RNGameController::registerMouseMoveEventCallback(
 // MARK: - Shared Buffers
 
 jsi::Value RNGameController::_startControllerCapture(jsi::Runtime &rt) {
-  // TODO: implement shared buffer capture
-  return createPromiseAsJSIValue(
-      rt, [this](jsi::Runtime &rt, std::shared_ptr<Promise> promise) {
-        jsInvoker_->invokeAsync(
-            [&rt, promise]() { promise->resolve(jsi::Array(rt, 0)); });
+  return createPromiseAsJSIValue(rt, [this](jsi::Runtime &rt,
+                                            std::shared_ptr<Promise> promise) {
+    dispatch_async(dispatch_get_main_queue(), ^{
+      auto *helper = [RNGameControllerHelper shared];
+      const auto &entries = [helper entries];
+
+      // Collect entry info on main queue
+      struct EntryInfo {
+        int controllerId;
+        int analogCount;
+        std::shared_ptr<ControllerState> state;
+      };
+      std::vector<EntryInfo> infos;
+      for (auto &pair : entries) {
+        auto *entry = pair.second;
+        infos.push_back(
+            {entry->controllerId, entry->analogCount, entry->state});
+      }
+
+      this->jsInvoker_->invokeAsync([this, infos, promise, &rt]() {
+        auto arr = jsi::Array(rt, infos.size());
+        for (size_t i = 0; i < infos.size(); i++) {
+          auto &info = infos[i];
+          auto obj = jsi::Object(rt);
+          obj.setProperty(rt, "controllerId", info.controllerId);
+
+          auto analogBuf = jsi::ArrayBuffer(
+              rt,
+              std::make_shared<ExternalBuffer>(
+                  reinterpret_cast<uint8_t *>(info.state->analog),
+                  info.analogCount * sizeof(float), info.state));
+          auto buttonsBuf = jsi::ArrayBuffer(
+              rt,
+              std::make_shared<ExternalBuffer>(
+                  reinterpret_cast<uint8_t *>(&info.state->buttons),
+                  sizeof(int32_t), info.state));
+          auto lastUpdatedBuf = jsi::ArrayBuffer(
+              rt,
+              std::make_shared<ExternalBuffer>(
+                  reinterpret_cast<uint8_t *>(&info.state->lastUpdated),
+                  sizeof(double), info.state));
+
+          obj.setProperty(rt, "analog", std::move(analogBuf));
+          obj.setProperty(rt, "buttons", std::move(buttonsBuf));
+          obj.setProperty(rt, "lastUpdated", std::move(lastUpdatedBuf));
+          arr.setValueAtIndex(rt, i, std::move(obj));
+        }
+        promise->resolve(std::move(arr));
       });
+    });
+  });
 }
 
 jsi::Value RNGameController::stopControllerCapture(jsi::Runtime &rt) {
-  // TODO: implement shared buffer stop
   return createPromiseAsJSIValue(
       rt, [this](jsi::Runtime &rt, std::shared_ptr<Promise> promise) {
         jsInvoker_->invokeAsync(
