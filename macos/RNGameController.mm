@@ -52,8 +52,7 @@ jsi::Value RNGameController::getControllers(jsi::Runtime &rt) {
         auto *entry = pair.second;
         GCController *c = entry->controller;
         NSMutableDictionary *info = [NSMutableDictionary dictionary];
-        info[@"controllerId"] =
-            [NSString stringWithUTF8String:entry->controllerId.c_str()];
+        info[@"controllerId"] = @(entry->controllerId);
         info[@"isCurrent"] = @(c == [GCController current]);
         info[@"vendorName"] = c.vendorName ?: [NSNull null];
         info[@"productCategory"] = c.productCategory ?: [NSNull null];
@@ -101,10 +100,8 @@ jsi::Value RNGameController::getControllers(jsi::Runtime &rt) {
           NSDictionary *info = results[i];
           auto obj = jsi::Object(rt);
 
-          obj.setProperty(
-              rt, "controllerId",
-              jsi::String::createFromUtf8(
-                  rt, [(NSString *)info[@"controllerId"] UTF8String]));
+          obj.setProperty(rt, "controllerId",
+                          [(NSNumber *)info[@"controllerId"] intValue]);
           obj.setProperty(rt, "isCurrent",
                           [(NSNumber *)info[@"isCurrent"] boolValue]);
           if (info[@"vendorName"] == [NSNull null]) {
@@ -242,8 +239,8 @@ jsi::Value RNGameController::getControllers(jsi::Runtime &rt) {
 // MARK: - getControllerState
 
 jsi::Object RNGameController::getControllerState(jsi::Runtime &rt,
-                                                 jsi::String controllerId) {
-  std::string cid = controllerId.utf8(rt);
+                                                 double controllerId) {
+  int cid = (int)controllerId;
   auto *helper = [RNGameControllerHelper shared];
   ControllerEntry *entry = [helper findEntryById:cid];
   if (entry) {
@@ -441,9 +438,9 @@ void RNGameController::toggleMouseMoveEvents(jsi::Runtime &rt, bool enable) {
 // MARK: - Actions
 
 jsi::Value RNGameController::setLightColor(jsi::Runtime &rt,
-                                           jsi::String controllerId, double r,
+                                           double controllerId, double r,
                                            double g, double b) {
-  std::string cid = controllerId.utf8(rt);
+  int cid = (int)controllerId;
   return createPromiseAsJSIValue(
       rt,
       [this, cid, r, g, b](jsi::Runtime &rt, std::shared_ptr<Promise> promise) {
@@ -466,9 +463,8 @@ jsi::Value RNGameController::setLightColor(jsi::Runtime &rt,
 }
 
 jsi::Value RNGameController::setPlayerIndex(jsi::Runtime &rt,
-                                            jsi::String controllerId,
-                                            double index) {
-  std::string cid = controllerId.utf8(rt);
+                                            double controllerId, double index) {
+  int cid = (int)controllerId;
   int idx = (int)index;
   return createPromiseAsJSIValue(
       rt, [this, cid, idx](jsi::Runtime &rt, std::shared_ptr<Promise> promise) {

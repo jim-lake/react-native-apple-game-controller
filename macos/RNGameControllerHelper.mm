@@ -4,12 +4,13 @@
 
 @implementation RNGameControllerHelper {
   std::shared_ptr<facebook::jsi::Function> _eventCallback;
-  std::unordered_map<std::string, ControllerEntry *> _entries;
-  NSMapTable<GCController *, NSString *> *_controllerToUuid;
+  std::unordered_map<int, ControllerEntry *> _entries;
+  NSMapTable<GCController *, NSNumber *> *_controllerToId;
   id _connectObserver;
   id _disconnectObserver;
   id _currentObserver;
   id _stopCurrentObserver;
+  int _nextControllerId;
 }
 
 + (instancetype)shared {
@@ -24,7 +25,8 @@
 - (instancetype)init {
   self = [super init];
   if (self) {
-    _controllerToUuid = [NSMapTable strongToStrongObjectsMapTable];
+    _controllerToId = [NSMapTable strongToStrongObjectsMapTable];
+    _nextControllerId = 1;
   }
   return self;
 }
@@ -33,8 +35,8 @@
 
 - (void)_assignProfile:(ControllerEntry *)entry
             controller:(GCController *)controller {
-  GCExtendedGamepad *gp = controller.extendedGamepad;
-  if (!gp) {
+  GCPhysicalInputProfile *profile = controller.physicalInputProfile;
+  if (!profile) {
     entry->analogCount = 0;
     entry->buttonInfos = @[];
     entry->axisInfos = @[];
@@ -46,107 +48,171 @@
   NSMutableArray *axes = [NSMutableArray array];
   NSMutableArray *dpads = [NSMutableArray array];
 
-  struct BtnDef {
-    GCControllerButtonInput *input;
-    NSString *name;
-  };
-  BtnDef btnDefs[] = {
-      {gp.buttonA, @"Button A"},
-      {gp.buttonB, @"Button B"},
-      {gp.buttonX, @"Button X"},
-      {gp.buttonY, @"Button Y"},
-      {gp.leftShoulder, @"Left Shoulder"},
-      {gp.rightShoulder, @"Right Shoulder"},
-      {gp.leftThumbstickButton, @"Left Stick Button"},
-      {gp.rightThumbstickButton, @"Right Stick Button"},
-      {gp.buttonOptions, @"Options"},
-      {gp.buttonMenu, @"Menu"},
-      {gp.buttonHome, @"Home"},
-  };
+  // Discover all buttons dynamically from the physical input profile.
+  // Sort keys for deterministic bit assignment across launches.
+  NSArray<NSString *> *buttonNames =
+      [[profile.buttons allKeys] sortedArrayUsingSelector:@selector(compare:)];
 
-  int bit = 0;
-  for (auto &bd : btnDefs) {
-    if (bd.input) {
-      NSString *sfSymbol = nil;
-      NSString *locName = nil;
-      if (@available(macOS 14.0, *)) {
-        sfSymbol = bd.input.sfSymbolsName;
-        locName = bd.input.localizedName;
+  // Collect which button names are part of dpads so we can tag them
+  NSMutableSet<NSString *> *dpadButtonNames = [NSMutableSet set];
+  NSArray<NSString *> *dpadNames =
+      [[profile.dpads allKeys] sortedArrayUsingSelector:@selector(compare:)];
+  for (NSString *dpadName in dpadNames) {
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    // Each dpad direction is also in profile.buttons; track them
+    for (NSString *bName in buttonNames) {
+      GCControllerButtonInput *btn = profile.buttons[bName];
+      if (btn == dpad.up || btn == dpad.down || btn == dpad.left ||
+          btn == dpad.right) {
+        [dpadButtonNames addObject:bName];
       }
-      [buttons addObject:@{
-        @"name" : bd.name,
-        @"sfSymbol" : sfSymbol ?: [NSNull null],
-        @"localizedName" : locName ?: [NSNull null],
-        @"bit" : @(bit)
-      }];
-      bit++;
     }
   }
 
-  int dpadUpBit = bit++;
-  int dpadDownBit = bit++;
-  int dpadLeftBit = bit++;
-  int dpadRightBit = bit++;
+  // Assign bits to all non-dpad buttons first
+  int bit = 0;
+  NSMutableArray<NSString *> *orderedButtonKeys = [NSMutableArray array];
+  for (NSString *name in buttonNames) {
+    if ([dpadButtonNames containsObject:name]) {
+      continue;
+    }
+    GCControllerButtonInput *btn = profile.buttons[name];
+    if (!btn) {
+      continue;
+    }
 
-  [buttons addObject:@{
-    @"name" : @"D-pad Up",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"bit" : @(dpadUpBit)
-  }];
-  [buttons addObject:@{
-    @"name" : @"D-pad Down",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"bit" : @(dpadDownBit)
-  }];
-  [buttons addObject:@{
-    @"name" : @"D-pad Left",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"bit" : @(dpadLeftBit)
-  }];
-  [buttons addObject:@{
-    @"name" : @"D-pad Right",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"bit" : @(dpadRightBit)
-  }];
+    NSString *sfSymbol = nil;
+    NSString *locName = nil;
+    if (@available(macOS 14.0, *)) {
+      sfSymbol = btn.sfSymbolsName;
+      locName = btn.localizedName;
+    }
+    [buttons addObject:@{
+      @"name" : name,
+      @"sfSymbol" : sfSymbol ?: [NSNull null],
+      @"localizedName" : locName ?: [NSNull null],
+      @"bit" : @(bit)
+    }];
+    [orderedButtonKeys addObject:name];
+    bit++;
+  }
 
-  [dpads addObject:@{
-    @"name" : @"Direction Pad",
-    @"up" : @(dpadUpBit),
-    @"down" : @(dpadDownBit),
-    @"left" : @(dpadLeftBit),
-    @"right" : @(dpadRightBit)
-  }];
+  // Assign bits for dpad directions and build dpad info
+  NSMutableArray<NSString *> *orderedDpadKeys = [NSMutableArray array];
+  for (NSString *dpadName in dpadNames) {
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    if (!dpad) {
+      continue;
+    }
 
-  [axes addObject:@{
-    @"name" : @"Left Thumbstick",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"analogCount" : @(2)
-  }];
-  [axes addObject:@{
-    @"name" : @"Right Thumbstick",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"analogCount" : @(2)
-  }];
-  [axes addObject:@{
-    @"name" : @"Left Trigger",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"analogCount" : @(1)
-  }];
-  [axes addObject:@{
-    @"name" : @"Right Trigger",
-    @"sfSymbol" : [NSNull null],
-    @"localizedName" : [NSNull null],
-    @"analogCount" : @(1)
-  }];
+    int upBit = bit++;
+    int downBit = bit++;
+    int leftBit = bit++;
+    int rightBit = bit++;
 
-  entry->analogCount = kMaxAnalog;
+    [buttons addObject:@{
+      @"name" : [NSString stringWithFormat:@"%@ Up", dpadName],
+      @"sfSymbol" : [NSNull null],
+      @"localizedName" : [NSNull null],
+      @"bit" : @(upBit)
+    }];
+    [buttons addObject:@{
+      @"name" : [NSString stringWithFormat:@"%@ Down", dpadName],
+      @"sfSymbol" : [NSNull null],
+      @"localizedName" : [NSNull null],
+      @"bit" : @(downBit)
+    }];
+    [buttons addObject:@{
+      @"name" : [NSString stringWithFormat:@"%@ Left", dpadName],
+      @"sfSymbol" : [NSNull null],
+      @"localizedName" : [NSNull null],
+      @"bit" : @(leftBit)
+    }];
+    [buttons addObject:@{
+      @"name" : [NSString stringWithFormat:@"%@ Right", dpadName],
+      @"sfSymbol" : [NSNull null],
+      @"localizedName" : [NSNull null],
+      @"bit" : @(rightBit)
+    }];
+
+    [dpads addObject:@{
+      @"name" : dpadName,
+      @"up" : @(upBit),
+      @"down" : @(downBit),
+      @"left" : @(leftBit),
+      @"right" : @(rightBit)
+    }];
+    [orderedDpadKeys addObject:dpadName];
+  }
+
+  // Discover all axes dynamically. Axes that are part of dpads get grouped.
+  // Each dpad contributes 2 analog values (x, y). Standalone axes contribute 1.
+  NSArray<NSString *> *axisNames =
+      [[profile.axes allKeys] sortedArrayUsingSelector:@selector(compare:)];
+
+  // Track which axes belong to dpads
+  NSMutableSet<NSString *> *dpadAxisNames = [NSMutableSet set];
+  for (NSString *dpadName in dpadNames) {
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    for (NSString *aName in axisNames) {
+      GCControllerAxisInput *ax = profile.axes[aName];
+      if (ax == dpad.xAxis || ax == dpad.yAxis) {
+        [dpadAxisNames addObject:aName];
+      }
+    }
+  }
+
+  int analogIdx = 0;
+
+  // Dpad-based axes (2 analogs per dpad: x, y)
+  for (NSString *dpadName in dpadNames) {
+    if (analogIdx + 2 > kMaxAnalog) {
+      break;
+    }
+    NSString *sfSymbol = nil;
+    NSString *locName = nil;
+    if (@available(macOS 14.0, *)) {
+      GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+      sfSymbol = dpad.sfSymbolsName;
+      locName = dpad.localizedName;
+    }
+    [axes addObject:@{
+      @"name" : dpadName,
+      @"sfSymbol" : sfSymbol ?: [NSNull null],
+      @"localizedName" : locName ?: [NSNull null],
+      @"analogCount" : @(2)
+    }];
+    analogIdx += 2;
+  }
+
+  // Standalone axes (1 analog each)
+  for (NSString *axisName in axisNames) {
+    if ([dpadAxisNames containsObject:axisName]) {
+      continue;
+    }
+    if (analogIdx + 1 > kMaxAnalog) {
+      break;
+    }
+    GCControllerAxisInput *ax = profile.axes[axisName];
+    if (!ax) {
+      continue;
+    }
+    NSString *sfSymbol = nil;
+    NSString *locName = nil;
+    if (@available(macOS 14.0, *)) {
+      sfSymbol = ax.sfSymbolsName;
+      locName = ax.localizedName;
+    }
+    [axes addObject:@{
+      @"name" : axisName,
+      @"sfSymbol" : sfSymbol ?: [NSNull null],
+      @"localizedName" : locName ?: [NSNull null],
+      @"analogCount" : @(1)
+    }];
+    analogIdx += 1;
+  }
+
+  entry->analogCount = analogIdx;
   for (int i = 0; i < kMaxAnalog; i++) {
     entry->state.analog[i].store(0.0f);
   }
@@ -154,125 +220,152 @@
   entry->axisInfos = axes;
   entry->dpadInfos = dpads;
 
-  // Value changed handler
-  std::string cid = entry->controllerId;
+  // Build O(1) lookup maps: element pointer -> index/bit
+  // buttonMap: GCControllerButtonInput* -> bit index
+  // axisMap: GCControllerElement* (axis or dpad) -> analog base index
+  NSMapTable<GCControllerElement *, NSNumber *> *buttonMap =
+      [NSMapTable mapTableWithKeyOptions:NSPointerFunctionsOpaqueMemory |
+                                         NSPointerFunctionsOpaquePersonality
+                            valueOptions:NSPointerFunctionsStrongMemory];
+  NSMapTable<GCControllerElement *, NSNumber *> *axisMap =
+      [NSMapTable mapTableWithKeyOptions:NSPointerFunctionsOpaqueMemory |
+                                         NSPointerFunctionsOpaquePersonality
+                            valueOptions:NSPointerFunctionsStrongMemory];
+
+  // Map each non-dpad button to its bit
+  {
+    int b = 0;
+    for (NSString *name in orderedButtonKeys) {
+      GCControllerButtonInput *btn = profile.buttons[name];
+      [buttonMap setObject:@(b) forKey:(GCControllerElement *)btn];
+      b++;
+    }
+  }
+
+  // Map dpad direction buttons to their bits
+  for (NSString *dpadName in orderedDpadKeys) {
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    // Find the dpad info entry to get the bit values
+    for (NSDictionary *dInfo in dpads) {
+      if ([dInfo[@"name"] isEqualToString:dpadName]) {
+        [buttonMap setObject:dInfo[@"up"]
+                      forKey:(GCControllerElement *)dpad.up];
+        [buttonMap setObject:dInfo[@"down"]
+                      forKey:(GCControllerElement *)dpad.down];
+        [buttonMap setObject:dInfo[@"left"]
+                      forKey:(GCControllerElement *)dpad.left];
+        [buttonMap setObject:dInfo[@"right"]
+                      forKey:(GCControllerElement *)dpad.right];
+        break;
+      }
+    }
+    // Also map the dpad itself so when the dpad element fires we can update all
+    // 4 Store negative base index to signal "dpad" in the handler
+  }
+
+  // Map axes/dpads to analog indices
+  int aIdx = 0;
+  for (NSString *dpadName in dpadNames) {
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)dpad];
+    [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)dpad.xAxis];
+    [axisMap setObject:@(aIdx + 1) forKey:(GCControllerElement *)dpad.yAxis];
+    aIdx += 2;
+  }
+  for (NSString *axisName in axisNames) {
+    if ([dpadAxisNames containsObject:axisName]) {
+      continue;
+    }
+    GCControllerAxisInput *ax = profile.axes[axisName];
+    if (!ax) {
+      continue;
+    }
+    [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)ax];
+    aIdx++;
+  }
+
+  int cid = entry->controllerId;
   ControllerState *cs = &entry->state;
 
-  gp.valueChangedHandler = ^(GCExtendedGamepad *gamepad,
-                             GCControllerElement *element) {
-    cs->analog[0].store(gamepad.leftThumbstick.xAxis.value);
-    cs->analog[1].store(gamepad.leftThumbstick.yAxis.value);
-    cs->analog[2].store(gamepad.rightThumbstick.xAxis.value);
-    cs->analog[3].store(gamepad.rightThumbstick.yAxis.value);
-    cs->analog[4].store(gamepad.leftTrigger.value);
-    cs->analog[5].store(gamepad.rightTrigger.value);
+  profile.valueDidChangeHandler = ^(GCPhysicalInputProfile *p,
+                                    GCControllerElement *element) {
+    bool buttonChanged = false;
 
-    uint32_t bval = 0;
-    int b = 0;
-    if (gamepad.buttonA && gamepad.buttonA.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.buttonA) {
-      b++;
-    }
-    if (gamepad.buttonB && gamepad.buttonB.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.buttonB) {
-      b++;
-    }
-    if (gamepad.buttonX && gamepad.buttonX.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.buttonX) {
-      b++;
-    }
-    if (gamepad.buttonY && gamepad.buttonY.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.buttonY) {
-      b++;
-    }
-    if (gamepad.leftShoulder && gamepad.leftShoulder.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.leftShoulder) {
-      b++;
-    }
-    if (gamepad.rightShoulder && gamepad.rightShoulder.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.rightShoulder) {
-      b++;
-    }
-    if (gamepad.leftThumbstickButton && gamepad.leftThumbstickButton.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.leftThumbstickButton) {
-      b++;
-    }
-    if (gamepad.rightThumbstickButton &&
-        gamepad.rightThumbstickButton.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.rightThumbstickButton) {
-      b++;
-    }
-    if (gamepad.buttonOptions && gamepad.buttonOptions.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.buttonOptions) {
-      b++;
-    }
-    if (gamepad.buttonMenu && gamepad.buttonMenu.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.buttonMenu) {
-      b++;
-    }
-    if (gamepad.buttonHome && gamepad.buttonHome.pressed) {
-      bval |= (1u << b);
-    }
-    if (gamepad.buttonHome) {
-      b++;
+    // Check if this element is an axis/dpad — O(1) lookup
+    NSNumber *analogBase = [axisMap objectForKey:element];
+    if (analogBase) {
+      int base = [analogBase intValue];
+      if ([element isKindOfClass:[GCControllerDirectionPad class]]) {
+        GCControllerDirectionPad *dpad = (GCControllerDirectionPad *)element;
+        cs->analog[base].store(dpad.xAxis.value);
+        cs->analog[base + 1].store(dpad.yAxis.value);
+      } else {
+        GCControllerAxisInput *ax = (GCControllerAxisInput *)element;
+        cs->analog[base].store(ax.value);
+      }
     }
 
-    if (gamepad.dpad.up.pressed) {
-      bval |= (1u << dpadUpBit);
-    }
-    if (gamepad.dpad.down.pressed) {
-      bval |= (1u << dpadDownBit);
-    }
-    if (gamepad.dpad.left.pressed) {
-      bval |= (1u << dpadLeftBit);
-    }
-    if (gamepad.dpad.right.pressed) {
-      bval |= (1u << dpadRightBit);
+    // Check if this element is a button — O(1) lookup
+    NSNumber *bitNum = [buttonMap objectForKey:element];
+    if (bitNum) {
+      int bitIdx = [bitNum intValue];
+      GCControllerButtonInput *btn = (GCControllerButtonInput *)element;
+      if (btn.pressed) {
+        uint32_t prev = cs->buttons.fetch_or(1u << bitIdx);
+        buttonChanged = !(prev & (1u << bitIdx));
+      } else {
+        uint32_t prev = cs->buttons.fetch_and(~(1u << bitIdx));
+        buttonChanged = (prev & (1u << bitIdx)) != 0;
+      }
     }
 
-    uint32_t prev = cs->buttons.exchange(bval);
-    cs->lastUpdated.store(CACurrentMediaTime());
-    if (prev != bval) {
-      if (self.module) {
-        if (self->_eventCallback) {
-          auto cb = self->_eventCallback;
-          auto invoker = self.module->jsInvoker_;
-          invoker->invokeAsync([cb, cs, cid](facebook::jsi::Runtime &rt) {
-            uint32_t b = cs->buttons.load(std::memory_order_relaxed);
-            uint32_t lastCb =
-                cs->lastCallbackButtons.exchange(b, std::memory_order_relaxed);
-            if (b != lastCb) {
-              double ts = cs->lastUpdated.load(std::memory_order_relaxed);
-              cb->call(rt, facebook::jsi::String::createFromUtf8(rt, cid),
-                       static_cast<int>(b), ts);
-            }
-          });
+    // If element is a dpad, update its 4 direction buttons too
+    if ([element isKindOfClass:[GCControllerDirectionPad class]]) {
+      GCControllerDirectionPad *dpad = (GCControllerDirectionPad *)element;
+      GCControllerButtonInput *dirs[] = {dpad.up, dpad.down, dpad.left,
+                                         dpad.right};
+      for (int i = 0; i < 4; i++) {
+        NSNumber *dBit =
+            [buttonMap objectForKey:(GCControllerElement *)dirs[i]];
+        if (!dBit) {
+          continue;
         }
-        if (self.buttonEventsEnabled) {
-          facebook::react::ControllerButtonEventStruct evt{
-              cid, (double)bval, CACurrentMediaTime()};
-          self.module->emitOnControllerButton(evt);
+        int idx = [dBit intValue];
+        if (dirs[i].pressed) {
+          uint32_t prev = cs->buttons.fetch_or(1u << idx);
+          if (!(prev & (1u << idx))) {
+            buttonChanged = true;
+          }
+        } else {
+          uint32_t prev = cs->buttons.fetch_and(~(1u << idx));
+          if (prev & (1u << idx)) {
+            buttonChanged = true;
+          }
         }
+      }
+    }
+
+    cs->lastUpdated.store(p.lastEventTimestamp);
+
+    if (buttonChanged && self.module) {
+      if (self->_eventCallback) {
+        auto cb = self->_eventCallback;
+        auto invoker = self.module->jsInvoker_;
+        invoker->invokeAsync([cb, cs, cid](facebook::jsi::Runtime &rt) {
+          uint32_t b = cs->buttons.load(std::memory_order_relaxed);
+          uint32_t lastCb =
+              cs->lastCallbackButtons.exchange(b, std::memory_order_relaxed);
+          if (b != lastCb) {
+            double ts = cs->lastUpdated.load(std::memory_order_relaxed);
+            cb->call(rt, cid, static_cast<int>(b), ts);
+          }
+        });
+      }
+      if (self.buttonEventsEnabled) {
+        uint32_t bval = cs->buttons.load(std::memory_order_relaxed);
+        facebook::react::ControllerButtonEventStruct evt{cid, (double)bval,
+                                                         p.lastEventTimestamp};
+        self.module->emitOnControllerButton(evt);
       }
     }
   };
@@ -329,14 +422,14 @@
                      queue:[NSOperationQueue mainQueue]
                 usingBlock:^(NSNotification *note) {
                   GCController *controller = note.object;
-                  NSString *uuid =
-                      [self->_controllerToUuid objectForKey:controller];
-                  if (!uuid) {
+                  NSNumber *idNum =
+                      [self->_controllerToId objectForKey:controller];
+                  if (!idNum) {
                     return;
                   }
                   if (self.module) {
                     self.module->emitOnControllerCurrentChange(
-                        std::string([uuid UTF8String]));
+                        [idNum intValue]);
                   }
                 }];
     _stopCurrentObserver = [[NSNotificationCenter defaultCenter]
@@ -354,8 +447,7 @@
 }
 
 - (void)_controllerConnected:(GCController *)controller {
-  NSString *uuid = [[NSUUID UUID] UUIDString];
-  std::string cid = [uuid UTF8String];
+  int cid = _nextControllerId++;
 
   auto *entry = new ControllerEntry();
   entry->controllerId = cid;
@@ -363,7 +455,7 @@
   [self _assignProfile:entry controller:controller];
 
   _entries[cid] = entry;
-  [_controllerToUuid setObject:uuid forKey:controller];
+  [_controllerToId setObject:@(cid) forKey:controller];
 
   if (self.module) {
     self.module->emitOnControllerConnected(cid);
@@ -371,23 +463,23 @@
 }
 
 - (void)_controllerDisconnected:(GCController *)controller {
-  NSString *uuid = [_controllerToUuid objectForKey:controller];
-  if (!uuid) {
+  NSNumber *idNum = [_controllerToId objectForKey:controller];
+  if (!idNum) {
     return;
   }
 
-  std::string cid = [uuid UTF8String];
+  int cid = [idNum intValue];
   auto it = _entries.find(cid);
   if (it != _entries.end()) {
     auto *e = it->second;
-    if (e->controller.extendedGamepad) {
-      e->controller.extendedGamepad.valueChangedHandler = nil;
+    if (e->controller.physicalInputProfile) {
+      e->controller.physicalInputProfile.valueDidChangeHandler = nil;
     }
     delete e;
     _entries.erase(it);
   }
 
-  [_controllerToUuid removeObjectForKey:controller];
+  [_controllerToId removeObjectForKey:controller];
 
   if (self.module) {
     self.module->emitOnControllerDisconnected(cid);
@@ -396,12 +488,12 @@
 
 // MARK: - Queries
 
-- (ControllerEntry *)findEntryById:(const std::string &)controllerId {
+- (ControllerEntry *)findEntryById:(int)controllerId {
   auto it = _entries.find(controllerId);
   return it != _entries.end() ? it->second : nullptr;
 }
 
-- (const std::unordered_map<std::string, ControllerEntry *> &)entries {
+- (const std::unordered_map<int, ControllerEntry *> &)entries {
   return _entries;
 }
 

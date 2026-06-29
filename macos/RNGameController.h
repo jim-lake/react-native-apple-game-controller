@@ -8,7 +8,7 @@ namespace facebook::react {
 
 // Type aliases for codegen structs
 using ControllerButtonEventStruct =
-    NativeGameControllerControllerButtonEvent<std::string, double, double>;
+    NativeGameControllerControllerButtonEvent<int, double, double>;
 using KeyboardEventStruct = NativeGameControllerKeyboardEvent<int, bool>;
 using MouseButtonEventStruct = NativeGameControllerMouseButtonEvent<int, bool>;
 using MouseMoveEventStruct = NativeGameControllerMouseMoveEvent<int, int>;
@@ -98,7 +98,7 @@ public:
 
   // Spec methods
   jsi::Value getControllers(jsi::Runtime &rt);
-  jsi::Object getControllerState(jsi::Runtime &rt, jsi::String controllerId);
+  jsi::Object getControllerState(jsi::Runtime &rt, double controllerId);
   jsi::Value hasKeyboard(jsi::Runtime &rt);
   jsi::Value hasMouse(jsi::Runtime &rt);
   void registerControllerEventCallback(jsi::Runtime &rt,
@@ -118,9 +118,9 @@ public:
   void toggleKeyboardEvents(jsi::Runtime &rt, bool enable);
   void toggleMouseButtonEvents(jsi::Runtime &rt, bool enable);
   void toggleMouseMoveEvents(jsi::Runtime &rt, bool enable);
-  jsi::Value setLightColor(jsi::Runtime &rt, jsi::String controllerId, double r,
+  jsi::Value setLightColor(jsi::Runtime &rt, double controllerId, double r,
                            double g, double b);
-  jsi::Value setPlayerIndex(jsi::Runtime &rt, jsi::String controllerId,
+  jsi::Value setPlayerIndex(jsi::Runtime &rt, double controllerId,
                             double index);
   jsi::Value shouldMonitorBackgroundEvents(jsi::Runtime &rt, bool enable);
 

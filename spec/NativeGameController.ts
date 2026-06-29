@@ -32,7 +32,7 @@ export interface DpadInfo {
   right: number;
 }
 export interface ControllerInfo {
-  controllerId: string;
+  controllerId: Int32;
   isCurrent: boolean;
   vendorName: string | null;
   productCategory: string | null;
@@ -51,7 +51,7 @@ export interface ControllerState {
   lastUpdated: Double;
 }
 export interface ControllerButtonEvent {
-  controllerId: string;
+  controllerId: Int32;
   buttons: Int32;
   lastUpdated: Double;
 }
@@ -69,7 +69,7 @@ export interface MouseMoveEvent {
 }
 
 export type ControllerEventCallback = (
-  controllerId: string,
+  controllerId: Int32,
   buttons: Int32,
   lastUpdated: Double
 ) => void;
@@ -81,20 +81,20 @@ export type MouseButtonEventCallback = (
 export type MouseMoveEventCallback = (deltaX: Int32, deltaY: Int32) => void;
 
 export interface InternalControllerSharedBuffers {
-  controllerId: string;
+  controllerId: Int32;
   analog: Object;
   buttons: Object;
   lastUpdated: Object;
 }
 export interface ControllerSharedBuffers {
-  controllerId: string;
+  controllerId: Int32;
   analog: Float32Array;
   buttons: Int32Array;
   lastUpdated: Float64Array;
 }
 export interface Spec extends TurboModule {
   getControllers(): Promise<ControllerInfo[]>;
-  getControllerState(controllerId: string): ControllerState;
+  getControllerState(controllerId: Int32): ControllerState;
   hasKeyboard(): Promise<boolean>;
   hasMouse(): Promise<boolean>;
 
@@ -118,17 +118,17 @@ export interface Spec extends TurboModule {
   toggleMouseButtonEvents(enable: boolean): void;
   toggleMouseMoveEvents(enable: boolean): void;
   setLightColor(
-    controllerId: string,
+    controllerId: Int32,
     r: number,
     g: number,
     b: number
   ): Promise<void>;
-  setPlayerIndex(controllerId: string, index: number): Promise<void>;
+  setPlayerIndex(controllerId: Int32, index: number): Promise<void>;
   shouldMonitorBackgroundEvents(enable: boolean): Promise<void>;
 
-  readonly onControllerConnected: EventEmitter<string>;
-  readonly onControllerDisconnected: EventEmitter<string>;
-  readonly onControllerCurrentChange: EventEmitter<string>;
+  readonly onControllerConnected: EventEmitter<number>;
+  readonly onControllerDisconnected: EventEmitter<number>;
+  readonly onControllerCurrentChange: EventEmitter<number>;
   readonly onControllerButton: EventEmitter<ControllerButtonEvent>;
   readonly onKeyboardConnected: EventEmitter<void>;
   readonly onKeyboardDisconnected: EventEmitter<void>;

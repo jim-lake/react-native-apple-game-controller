@@ -13,7 +13,7 @@ class RNGameController;
 
 // MARK: - Controller State
 
-static constexpr int kMaxAnalog = 6;
+static constexpr int kMaxAnalog = 32;
 
 struct ControllerState {
   std::atomic<float> analog[kMaxAnalog];
@@ -25,7 +25,7 @@ struct ControllerState {
 // MARK: - Controller Entry
 
 struct ControllerEntry {
-  std::string controllerId; // UUID string
+  int controllerId;
   __strong GCController *controller;
   ControllerState state;
   int analogCount;
@@ -45,8 +45,8 @@ struct ControllerEntry {
 - (void)start;
 - (void)stop;
 - (void)toggleCurrentEvents:(bool)enable;
-- (ControllerEntry *)findEntryById:(const std::string &)controllerId;
-- (const std::unordered_map<std::string, ControllerEntry *> &)entries;
+- (ControllerEntry *)findEntryById:(int)controllerId;
+- (const std::unordered_map<int, ControllerEntry *> &)entries;
 - (void)setEventCallback:(std::shared_ptr<facebook::jsi::Function>)callback;
 - (std::shared_ptr<facebook::jsi::Function>)clearEventCallback;
 
