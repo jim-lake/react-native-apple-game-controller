@@ -96,8 +96,12 @@ jsi::Value RNGameController::getControllers(jsi::Runtime &rt) {
           case GCDeviceBatteryStateFull:
             info[@"batteryState"] = @"full";
             break;
-          default:
+          case GCDeviceBatteryStateDischarging:
             info[@"batteryState"] = @"discharging";
+            break;
+          case GCDeviceBatteryStateUnknown:
+          default:
+            info[@"batteryState"] = @"unknown";
             break;
           }
         } else {
