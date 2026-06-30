@@ -38,7 +38,7 @@ export function LogBox() {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    height: 200,
     borderWidth: 1,
     borderColor: '#555',
     borderRadius: 4,
@@ -55,12 +55,7 @@ const styles = StyleSheet.create({
   headerText: { color: '#aaa', fontSize: 12 },
   headerButtons: { flexDirection: 'row', gap: 8 },
   btn: { color: '#6af', fontSize: 12 },
-  list: { flex: 1, padding: 4, transform: [{ scaleY: -1 }] },
+  list: { flex: 1, padding: 4 },
   listContainer: { flexDirection: 'column', paddingTop: 20 },
-  line: {
-    fontSize: 10,
-    color: '#ccc',
-    fontFamily: 'Menlo',
-    transform: [{ scaleY: -1 }],
-  },
+  line: { fontSize: 10, color: '#ccc' },
 });

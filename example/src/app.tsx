@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, ScrollView, StyleSheet, Pressable } from 'react-native';
 import GameController from 'react-native-apple-game-controller';
 import type { EnrichedControllerInfo } from 'react-native-apple-game-controller';
 import { addLine } from './log_store';
@@ -157,7 +157,7 @@ function App(): React.JSX.Element {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.title}>Game Controller Example</Text>
 
       <View style={styles.toggles}>
@@ -207,7 +207,7 @@ function App(): React.JSX.Element {
       <View style={styles.logContainer}>
         <LogBox />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
