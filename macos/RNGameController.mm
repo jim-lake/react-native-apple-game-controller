@@ -37,20 +37,33 @@ RNGameController::RNGameController(std::shared_ptr<CallInvoker> jsInvoker)
 
 RNGameController::~RNGameController() {
   auto *ptr = this;
-  dispatch_async(dispatch_get_main_queue(), ^{
+  // Must be synchronous: we cannot let the destructor return while helpers
+  // still hold a dangling module pointer. All emit paths run on main queue,
+  // so once this block completes with module nulled, no further emits are
+  // possible.
+  if ([NSThread isMainThread]) {
     if ([RNGameControllerHelper shared].module == ptr) {
       [[RNGameControllerHelper shared] stop];
-      [RNGameControllerHelper shared].module = nullptr;
     }
     if ([RNGCKeyboardHelper shared].module == ptr) {
       [[RNGCKeyboardHelper shared] stop];
-      [RNGCKeyboardHelper shared].module = nullptr;
     }
     if ([RNGCMouseHelper shared].module == ptr) {
       [[RNGCMouseHelper shared] stop];
-      [RNGCMouseHelper shared].module = nullptr;
     }
-  });
+  } else {
+    dispatch_sync(dispatch_get_main_queue(), ^{
+      if ([RNGameControllerHelper shared].module == ptr) {
+        [[RNGameControllerHelper shared] stop];
+      }
+      if ([RNGCKeyboardHelper shared].module == ptr) {
+        [[RNGCKeyboardHelper shared] stop];
+      }
+      if ([RNGCMouseHelper shared].module == ptr) {
+        [[RNGCMouseHelper shared] stop];
+      }
+    });
+  }
 }
 
 // MARK: - getControllers

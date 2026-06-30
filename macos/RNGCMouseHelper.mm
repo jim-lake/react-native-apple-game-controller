@@ -152,6 +152,15 @@ static std::atomic<int32_t> g_mouseCallbackDeltaY{0};
 }
 
 - (void)stop {
+  // FIRST: Disable all event emitters and clear callbacks so no emits can fire
+  // during teardown. The module/runtime may be gone after this point.
+  self.buttonEventsEnabled = false;
+  self.moveEventsEnabled = false;
+  self.deltaCollectEnabled = false;
+  self.module = nullptr;
+  _buttonCallback.reset();
+  _moveCallback.reset();
+
   for (GCMouse *mouse in [_attachedMice allObjects]) {
     [self _detachHandlers:mouse];
   }

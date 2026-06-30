@@ -70,6 +70,12 @@
 }
 
 - (void)stop {
+  // FIRST: Disable all event emitters and clear callbacks so no emits can fire
+  // during teardown. The module/runtime may be gone after this point.
+  self.eventsEnabled = false;
+  self.module = nullptr;
+  _callback.reset();
+
   GCKeyboard *keyboard = GCKeyboard.coalescedKeyboard;
   if (keyboard) {
     keyboard.keyboardInput.keyChangedHandler = nil;

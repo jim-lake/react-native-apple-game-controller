@@ -214,52 +214,54 @@ export function ControllerStatus({ controller, pollingEnabled }: Props) {
             <Text style={styles.sectionTitle}>
               Axes ({controller.axes.length})
             </Text>
-            {controller.axes.map((axis) => {
-              const values = visualState.axisValues.get(axis.name) ?? [];
-              if (axis.analogCount === 2) {
-                // Stick — show as crosshair
-                const x = values[0] ?? 0;
-                const y = values[1] ?? 0;
+            <View style={styles.axesRow}>
+              {controller.axes.map((axis) => {
+                const values = visualState.axisValues.get(axis.name) ?? [];
+                if (axis.analogCount === 2) {
+                  // Stick — show as crosshair
+                  const x = values[0] ?? 0;
+                  const y = values[1] ?? 0;
+                  return (
+                    <View key={axis.name} style={styles.stickContainer}>
+                      <Text style={styles.axisLabel}>{axis.name}</Text>
+                      <View style={styles.stickBox}>
+                        <View
+                          style={[
+                            styles.stickDot,
+                            {
+                              left: `${50 + x * 50}%` as any,
+                              top: `${50 - y * 50}%` as any,
+                            },
+                          ]}
+                        />
+                        {/* Crosshair lines */}
+                        <View style={styles.stickCrossH} />
+                        <View style={styles.stickCrossV} />
+                      </View>
+                      <Text style={styles.axisValue}>
+                        x: {x.toFixed(2)} y: {y.toFixed(2)}
+                      </Text>
+                    </View>
+                  );
+                }
+                // Single axis — show as bar
+                const val = values[0] ?? 0;
                 return (
-                  <View key={axis.name} style={styles.stickContainer}>
+                  <View key={axis.name} style={styles.singleAxisContainer}>
                     <Text style={styles.axisLabel}>{axis.name}</Text>
-                    <View style={styles.stickBox}>
+                    <View style={styles.axisBar}>
                       <View
                         style={[
-                          styles.stickDot,
-                          {
-                            left: `${50 + x * 50}%` as any,
-                            top: `${50 - y * 50}%` as any,
-                          },
+                          styles.axisBarFill,
+                          { width: `${Math.abs(val) * 100}%` as any },
                         ]}
                       />
-                      {/* Crosshair lines */}
-                      <View style={styles.stickCrossH} />
-                      <View style={styles.stickCrossV} />
                     </View>
-                    <Text style={styles.axisValue}>
-                      x: {x.toFixed(2)} y: {y.toFixed(2)}
-                    </Text>
+                    <Text style={styles.axisValue}>{val.toFixed(2)}</Text>
                   </View>
                 );
-              }
-              // Single axis — show as bar
-              const val = values[0] ?? 0;
-              return (
-                <View key={axis.name} style={styles.axisRow}>
-                  <Text style={styles.axisLabel}>{axis.name}</Text>
-                  <View style={styles.axisBar}>
-                    <View
-                      style={[
-                        styles.axisBarFill,
-                        { width: `${Math.abs(val) * 100}%` as any },
-                      ]}
-                    />
-                  </View>
-                  <Text style={styles.axisValue}>{val.toFixed(2)}</Text>
-                </View>
-              );
-            })}
+              })}
+            </View>
           </View>
 
           {/* DPads */}
@@ -268,56 +270,58 @@ export function ControllerStatus({ controller, pollingEnabled }: Props) {
               <Text style={styles.sectionTitle}>
                 D-Pads ({controller.dpads.length})
               </Text>
-              {visualState.dpadStates.map((dpad) => (
-                <View key={dpad.name} style={styles.dpadContainer}>
-                  <Text style={styles.axisLabel}>{dpad.name}</Text>
-                  <View style={styles.dpadGrid}>
-                    <View style={styles.dpadRow}>
-                      <View style={styles.dpadEmpty} />
-                      <View
-                        style={[
-                          styles.dpadBtn,
-                          dpad.up && styles.dpadBtnActive,
-                        ]}
-                      >
-                        <Text style={styles.dpadText}>▲</Text>
+              <View style={styles.dpadsRow}>
+                {visualState.dpadStates.map((dpad) => (
+                  <View key={dpad.name} style={styles.dpadContainer}>
+                    <Text style={styles.axisLabel}>{dpad.name}</Text>
+                    <View style={styles.dpadGrid}>
+                      <View style={styles.dpadRow}>
+                        <View style={styles.dpadEmpty} />
+                        <View
+                          style={[
+                            styles.dpadBtn,
+                            dpad.up && styles.dpadBtnActive,
+                          ]}
+                        >
+                          <Text style={styles.dpadText}>▲</Text>
+                        </View>
+                        <View style={styles.dpadEmpty} />
                       </View>
-                      <View style={styles.dpadEmpty} />
-                    </View>
-                    <View style={styles.dpadRow}>
-                      <View
-                        style={[
-                          styles.dpadBtn,
-                          dpad.left && styles.dpadBtnActive,
-                        ]}
-                      >
-                        <Text style={styles.dpadText}>◀</Text>
+                      <View style={styles.dpadRow}>
+                        <View
+                          style={[
+                            styles.dpadBtn,
+                            dpad.left && styles.dpadBtnActive,
+                          ]}
+                        >
+                          <Text style={styles.dpadText}>◀</Text>
+                        </View>
+                        <View style={styles.dpadCenter} />
+                        <View
+                          style={[
+                            styles.dpadBtn,
+                            dpad.right && styles.dpadBtnActive,
+                          ]}
+                        >
+                          <Text style={styles.dpadText}>▶</Text>
+                        </View>
                       </View>
-                      <View style={styles.dpadCenter} />
-                      <View
-                        style={[
-                          styles.dpadBtn,
-                          dpad.right && styles.dpadBtnActive,
-                        ]}
-                      >
-                        <Text style={styles.dpadText}>▶</Text>
+                      <View style={styles.dpadRow}>
+                        <View style={styles.dpadEmpty} />
+                        <View
+                          style={[
+                            styles.dpadBtn,
+                            dpad.down && styles.dpadBtnActive,
+                          ]}
+                        >
+                          <Text style={styles.dpadText}>▼</Text>
+                        </View>
+                        <View style={styles.dpadEmpty} />
                       </View>
-                    </View>
-                    <View style={styles.dpadRow}>
-                      <View style={styles.dpadEmpty} />
-                      <View
-                        style={[
-                          styles.dpadBtn,
-                          dpad.down && styles.dpadBtnActive,
-                        ]}
-                      >
-                        <Text style={styles.dpadText}>▼</Text>
-                      </View>
-                      <View style={styles.dpadEmpty} />
                     </View>
                   </View>
-                </View>
-              ))}
+                ))}
+              </View>
             </View>
           )}
 
@@ -386,7 +390,14 @@ const styles = StyleSheet.create({
   buttonNamePressed: { color: '#fff', fontWeight: '700' },
 
   // Axes
+  axesRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   stickContainer: { marginBottom: 6 },
+  singleAxisContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6,
+    minWidth: 120,
+  },
   stickBox: {
     width: 60,
     height: 60,
@@ -422,7 +433,6 @@ const styles = StyleSheet.create({
     width: 1,
     backgroundColor: '#555',
   },
-  axisRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 3 },
   axisLabel: { fontSize: 9, color: '#aaa', width: 100, fontFamily: 'Menlo' },
   axisBar: {
     flex: 1,
@@ -442,6 +452,7 @@ const styles = StyleSheet.create({
   },
 
   // DPad
+  dpadsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   dpadContainer: { marginBottom: 6 },
   dpadGrid: { alignItems: 'center' },
   dpadRow: { flexDirection: 'row' },

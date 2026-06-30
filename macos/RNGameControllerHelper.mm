@@ -164,6 +164,34 @@
 
   int analogIdx = 0;
 
+  // Analog buttons — any non-dpad button that reports analog values gets an
+  // axis. We track which buttons are analog so we can wire them into the axis
+  // map later.
+  NSMutableArray<NSString *> *analogButtonKeys = [NSMutableArray array];
+  for (NSString *name in orderedButtonKeys) {
+    if (analogIdx + 1 > kMaxAnalog) {
+      break;
+    }
+    GCControllerButtonInput *btn = profile.buttons[name];
+    if (!btn || !btn.isAnalog) {
+      continue;
+    }
+    NSString *sfSymbol = nil;
+    NSString *locName = nil;
+    if (@available(macOS 14.0, *)) {
+      sfSymbol = btn.sfSymbolsName;
+      locName = btn.localizedName;
+    }
+    [axes addObject:@{
+      @"name" : name,
+      @"sfSymbol" : sfSymbol ?: [NSNull null],
+      @"localizedName" : locName ?: [NSNull null],
+      @"analogCount" : @(1)
+    }];
+    [analogButtonKeys addObject:name];
+    analogIdx += 1;
+  }
+
   // Dpad-based axes (2 analogs per dpad: x, y)
   for (NSString *dpadName in dpadNames) {
     if (analogIdx + 2 > kMaxAnalog) {
@@ -185,31 +213,53 @@
     analogIdx += 2;
   }
 
-  // Standalone axes (1 analog each)
+  // Standalone axes — only analog axes get an axis entry.
+  // Non-analog axes are treated as buttons (digital on/off).
+  NSMutableArray<NSString *> *analogAxisKeys = [NSMutableArray array];
+  NSMutableArray<NSString *> *digitalAxisKeys = [NSMutableArray array];
   for (NSString *axisName in axisNames) {
     if ([dpadAxisNames containsObject:axisName]) {
       continue;
-    }
-    if (analogIdx + 1 > kMaxAnalog) {
-      break;
     }
     GCControllerAxisInput *ax = profile.axes[axisName];
     if (!ax) {
       continue;
     }
-    NSString *sfSymbol = nil;
-    NSString *locName = nil;
-    if (@available(macOS 14.0, *)) {
-      sfSymbol = ax.sfSymbolsName;
-      locName = ax.localizedName;
+    if (ax.isAnalog) {
+      if (analogIdx + 1 > kMaxAnalog) {
+        break;
+      }
+      NSString *sfSymbol = nil;
+      NSString *locName = nil;
+      if (@available(macOS 14.0, *)) {
+        sfSymbol = ax.sfSymbolsName;
+        locName = ax.localizedName;
+      }
+      [axes addObject:@{
+        @"name" : axisName,
+        @"sfSymbol" : sfSymbol ?: [NSNull null],
+        @"localizedName" : locName ?: [NSNull null],
+        @"analogCount" : @(1)
+      }];
+      [analogAxisKeys addObject:axisName];
+      analogIdx += 1;
+    } else {
+      // Non-analog axis → treat as a button
+      NSString *sfSymbol = nil;
+      NSString *locName = nil;
+      if (@available(macOS 14.0, *)) {
+        sfSymbol = ax.sfSymbolsName;
+        locName = ax.localizedName;
+      }
+      [buttons addObject:@{
+        @"name" : axisName,
+        @"sfSymbol" : sfSymbol ?: [NSNull null],
+        @"localizedName" : locName ?: [NSNull null],
+        @"bit" : @(bit)
+      }];
+      [digitalAxisKeys addObject:axisName];
+      bit++;
     }
-    [axes addObject:@{
-      @"name" : axisName,
-      @"sfSymbol" : sfSymbol ?: [NSNull null],
-      @"localizedName" : locName ?: [NSNull null],
-      @"analogCount" : @(1)
-    }];
-    analogIdx += 1;
   }
 
   entry->analogCount = analogIdx;
@@ -263,6 +313,12 @@
 
   // Map axes/dpads to analog indices
   int aIdx = 0;
+  // Analog buttons first (matches discovery order above)
+  for (NSString *name in analogButtonKeys) {
+    GCControllerButtonInput *btn = profile.buttons[name];
+    [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)btn];
+    aIdx++;
+  }
   for (NSString *dpadName in dpadNames) {
     GCControllerDirectionPad *dpad = profile.dpads[dpadName];
     [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)dpad];
@@ -270,16 +326,29 @@
     [axisMap setObject:@(aIdx + 1) forKey:(GCControllerElement *)dpad.yAxis];
     aIdx += 2;
   }
-  for (NSString *axisName in axisNames) {
-    if ([dpadAxisNames containsObject:axisName]) {
-      continue;
-    }
+  // Only analog standalone axes get mapped to the analog array
+  for (NSString *axisName in analogAxisKeys) {
     GCControllerAxisInput *ax = profile.axes[axisName];
     if (!ax) {
       continue;
     }
     [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)ax];
     aIdx++;
+  }
+
+  // Map digital (non-analog) axes to the button map
+  for (NSString *axisName in digitalAxisKeys) {
+    GCControllerAxisInput *ax = profile.axes[axisName];
+    if (!ax) {
+      continue;
+    }
+    // Find the bit for this axis name in the buttons array
+    for (NSDictionary *bInfo in buttons) {
+      if ([bInfo[@"name"] isEqualToString:axisName]) {
+        [buttonMap setObject:bInfo[@"bit"] forKey:(GCControllerElement *)ax];
+        break;
+      }
+    }
   }
 
   int cid = entry->controllerId;
@@ -291,7 +360,7 @@
     (void)sharedState; // prevent release while handler is live
     bool buttonChanged = false;
 
-    // Check if this element is an axis/dpad — O(1) lookup
+    // Check if this element is an axis/dpad/analog-button — O(1) lookup
     NSNumber *analogBase = [axisMap objectForKey:element];
     if (analogBase) {
       int base = [analogBase intValue];
@@ -299,18 +368,29 @@
         GCControllerDirectionPad *dpad = (GCControllerDirectionPad *)element;
         cs->analog[base].store(dpad.xAxis.value);
         cs->analog[base + 1].store(dpad.yAxis.value);
+      } else if ([element isKindOfClass:[GCControllerButtonInput class]]) {
+        GCControllerButtonInput *btn = (GCControllerButtonInput *)element;
+        cs->analog[base].store(btn.value);
       } else {
         GCControllerAxisInput *ax = (GCControllerAxisInput *)element;
         cs->analog[base].store(ax.value);
       }
     }
 
-    // Check if this element is a button — O(1) lookup
+    // Check if this element is a button (or digital axis) — O(1) lookup
     NSNumber *bitNum = [buttonMap objectForKey:element];
     if (bitNum) {
       int bitIdx = [bitNum intValue];
-      GCControllerButtonInput *btn = (GCControllerButtonInput *)element;
-      if (btn.pressed) {
+      bool pressed;
+      if ([element isKindOfClass:[GCControllerButtonInput class]]) {
+        pressed = ((GCControllerButtonInput *)element).pressed;
+      } else if ([element isKindOfClass:[GCControllerAxisInput class]]) {
+        // Digital axis: treat non-zero as pressed
+        pressed = (((GCControllerAxisInput *)element).value != 0.0f);
+      } else {
+        pressed = false;
+      }
+      if (pressed) {
         uint32_t prev = cs->buttons.fetch_or(1u << bitIdx);
         buttonChanged = !(prev & (1u << bitIdx));
       } else {
@@ -395,14 +475,13 @@
 }
 
 - (void)stop {
-  // Copy keys since _controllerDisconnected mutates _entries
-  std::vector<GCController *> controllers;
-  for (auto &pair : _entries) {
-    controllers.push_back(pair.second->controller);
-  }
-  for (GCController *c : controllers) {
-    [self _controllerDisconnected:c];
-  }
+  // FIRST: Disable all event emitters and clear callbacks so no emits can fire
+  // during teardown. The module/runtime may be gone after this point.
+  self.buttonEventsEnabled = false;
+  self.module = nullptr;
+  _eventCallback.reset();
+  [self toggleCurrentEvents:false];
+
   if (_connectObserver) {
     [[NSNotificationCenter defaultCenter] removeObserver:_connectObserver];
     _connectObserver = nil;
@@ -411,7 +490,17 @@
     [[NSNotificationCenter defaultCenter] removeObserver:_disconnectObserver];
     _disconnectObserver = nil;
   }
-  [self toggleCurrentEvents:false];
+
+  // Now tear down entries (no emits will happen since module is nil)
+  for (auto &pair : _entries) {
+    auto *e = pair.second;
+    if (e->controller.physicalInputProfile) {
+      e->controller.physicalInputProfile.valueDidChangeHandler = nil;
+    }
+    delete e;
+  }
+  _entries.clear();
+  [_controllerToId removeAllObjects];
 }
 
 - (void)toggleCurrentEvents:(bool)enable {

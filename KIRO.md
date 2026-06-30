@@ -108,6 +108,16 @@ This generates `RNGameControllerSpecJSI.h` containing:
 - The AppDelegate uses `RCTAppDependencyProvider` for new architecture module discovery
 - Metro config has `watchFolders: [libraryRoot]` so edits to `src/` and `spec/` hot-reload
 
+## Teardown Invariant
+
+On module unload/stop, ALL event emitters and callbacks MUST be disabled/disarmed FIRST before any other teardown logic. Once the module begins teardown, emitting events is undefined behavior (the runtime/JSI may already be gone). The `stop` methods in each helper follow this order:
+
+1. Disable all event flags (`eventsEnabled`, `buttonEventsEnabled`, etc.)
+2. Null the `module` pointer (prevents any emit path from firing)
+3. Clear/reset all callback shared_ptrs
+4. Remove notification observers
+5. Detach hardware handlers and clean up entries
+
 ## Rules
 
 - NEVER use `--legacy-peer-deps` or `--force` with npm install. If there are peer dependency conflicts, fix the version constraints instead.
