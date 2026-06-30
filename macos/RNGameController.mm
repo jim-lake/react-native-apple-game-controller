@@ -375,57 +375,54 @@ void RNGameController::registerMouseMoveEventCallback(
 // MARK: - Shared Buffers
 
 jsi::Value RNGameController::_startControllerCapture(jsi::Runtime &rt) {
-  return createPromiseAsJSIValue(rt, [this](jsi::Runtime &rt,
-                                            std::shared_ptr<Promise> promise) {
-    dispatch_async(dispatch_get_main_queue(), ^{
-      auto *helper = [RNGameControllerHelper shared];
-      const auto &entries = [helper entries];
+  return createPromiseAsJSIValue(
+      rt, [this](jsi::Runtime &rt, std::shared_ptr<Promise> promise) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+          auto *helper = [RNGameControllerHelper shared];
+          const auto &entries = [helper entries];
 
-      // Collect entry info on main queue
-      struct EntryInfo {
-        int controllerId;
-        int analogCount;
-        std::shared_ptr<ControllerState> state;
-      };
-      std::vector<EntryInfo> infos;
-      for (auto &pair : entries) {
-        auto *entry = pair.second;
-        infos.push_back(
-            {entry->controllerId, entry->analogCount, entry->state});
-      }
+          // Collect entry info on main queue
+          struct EntryInfo {
+            int controllerId;
+            int analogCount;
+            std::shared_ptr<ControllerState> state;
+          };
+          std::vector<EntryInfo> infos;
+          for (auto &pair : entries) {
+            auto *entry = pair.second;
+            infos.push_back(
+                {entry->controllerId, entry->analogCount, entry->state});
+          }
 
-      this->jsInvoker_->invokeAsync([this, infos, promise, &rt]() {
-        auto arr = jsi::Array(rt, infos.size());
-        for (size_t i = 0; i < infos.size(); i++) {
-          auto &info = infos[i];
-          auto obj = jsi::Object(rt);
-          obj.setProperty(rt, "controllerId", info.controllerId);
+          this->jsInvoker_->invokeAsync([this, infos, promise, &rt]() {
+            auto arr = jsi::Array(rt, infos.size());
+            for (size_t i = 0; i < infos.size(); i++) {
+              auto &info = infos[i];
+              auto obj = jsi::Object(rt);
+              obj.setProperty(rt, "controllerId", info.controllerId);
 
-          auto analogBuf = jsi::ArrayBuffer(
-              rt,
-              std::make_shared<ExternalBuffer>(
-                  reinterpret_cast<uint8_t *>(info.state->analog),
-                  info.analogCount * sizeof(float), info.state));
-          auto buttonsBuf = jsi::ArrayBuffer(
-              rt,
-              std::make_shared<ExternalBuffer>(
-                  reinterpret_cast<uint8_t *>(&info.state->buttons),
-                  sizeof(int32_t), info.state));
-          auto lastUpdatedBuf = jsi::ArrayBuffer(
-              rt,
-              std::make_shared<ExternalBuffer>(
-                  reinterpret_cast<uint8_t *>(&info.state->lastUpdated),
-                  sizeof(double), info.state));
+              auto analogBuf = jsi::ArrayBuffer(
+                  rt, std::make_shared<ExternalBuffer>(
+                          reinterpret_cast<uint8_t *>(info.state->analog),
+                          info.analogCount * sizeof(float), info.state));
+              auto buttonsBuf = jsi::ArrayBuffer(
+                  rt, std::make_shared<ExternalBuffer>(
+                          reinterpret_cast<uint8_t *>(&info.state->buttons),
+                          sizeof(int32_t), info.state));
+              auto lastUpdatedBuf = jsi::ArrayBuffer(
+                  rt, std::make_shared<ExternalBuffer>(
+                          reinterpret_cast<uint8_t *>(&info.state->lastUpdated),
+                          sizeof(double), info.state));
 
-          obj.setProperty(rt, "analog", std::move(analogBuf));
-          obj.setProperty(rt, "buttons", std::move(buttonsBuf));
-          obj.setProperty(rt, "lastUpdated", std::move(lastUpdatedBuf));
-          arr.setValueAtIndex(rt, i, std::move(obj));
-        }
-        promise->resolve(std::move(arr));
+              obj.setProperty(rt, "analog", std::move(analogBuf));
+              obj.setProperty(rt, "buttons", std::move(buttonsBuf));
+              obj.setProperty(rt, "lastUpdated", std::move(lastUpdatedBuf));
+              arr.setValueAtIndex(rt, i, std::move(obj));
+            }
+            promise->resolve(std::move(arr));
+          });
+        });
       });
-    });
-  });
 }
 
 jsi::Value RNGameController::stopControllerCapture(jsi::Runtime &rt) {

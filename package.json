@@ -2,6 +2,7 @@
   "name": "react-native-apple-game-controller",
   "version": "0.0.1",
   "description": "Apple Game Controller support for React Native macOS",
+  "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
   "source": "src/index.ts",
@@ -14,7 +15,9 @@
   ],
   "scripts": {
     "pretty": "prettier --write src spec && clang-format -i macos/*",
-    "ts:check": "tsc --noEmit"
+    "ts:check": "tsc --noEmit",
+    "test": "node --experimental-test-module-mocks --import tsx --test tests/**/*.test.ts",
+    "lint": "eslint . --fix"
   },
   "keywords": [
     "react-native",
@@ -29,8 +32,13 @@
     "react-native-macos": ">=0.81.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.4",
+    "@types/node": "^26.0.1",
+    "eslint": "^9.39.4",
     "prettier": "^3.8.4",
-    "typescript": "^5.4.0"
+    "tsx": "^4.22.4",
+    "typescript": "^5.4.0",
+    "typescript-eslint": "^8.62.1"
   },
   "codegenConfig": {
     "name": "RNGameControllerSpec",

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import GameController from 'react-native-apple-game-controller';
-import type { ControllerInfo } from 'react-native-apple-game-controller';
+import type { EnrichedControllerInfo } from 'react-native-apple-game-controller';
 import { addLine } from './log_store';
 import { ToggleButton } from './components/toggle_button';
 import { ControllerStatus } from './components/controller_status';
@@ -10,7 +10,7 @@ import { MouseTest } from './mouse_test';
 import { KeyboardTest } from './keyboard_test';
 
 function App(): React.JSX.Element {
-  const [controllers, setControllers] = useState<ControllerInfo[]>([]);
+  const [controllers, setControllers] = useState<EnrichedControllerInfo[]>([]);
   const [polling, setPolling] = useState(true);
 
   useEffect(() => {
@@ -64,9 +64,21 @@ function App(): React.JSX.Element {
           addLine(`[current] ${id}`);
         }),
         GameController.onControllerButton((e) => {
-          addLine(
-            `[btn] ${e.controllerId} buttons=0x${(e.buttons >>> 0).toString(16)}`
-          );
+          // Log button names using the cached controller info
+          const info = GameController.getControllerInfo(e.controllerId);
+          if (info) {
+            const mask = e.buttons;
+            const pressedNames = info.buttons
+              .filter((b) => (mask & (1 << b.bit)) !== 0)
+              .map((b) => b.name);
+            addLine(
+              `[btn] ${e.controllerId} pressed: [${pressedNames.join(', ')}]`
+            );
+          } else {
+            addLine(
+              `[btn] ${e.controllerId} buttons=0x${(e.buttons >>> 0).toString(16)}`
+            );
+          }
         }),
         GameController.onKeyboardEvent((e) => {
           addLine(`[key] code=${e.keyCode} ${e.pressed ? 'down' : 'up'}`);
@@ -100,6 +112,50 @@ function App(): React.JSX.Element {
     }
   }, []);
 
+  const handleGetControllers = async () => {
+    try {
+      const c = await GameController.getControllers();
+      setControllers(c);
+      addLine(`[get-controllers] Found ${c.length} controller(s)`);
+      for (const ctrl of c) {
+        addLine(`[controller] --- ID: ${ctrl.controllerId} ---`);
+        addLine(`[controller]   vendorName: ${ctrl.vendorName ?? 'N/A'}`);
+        addLine(
+          `[controller]   productCategory: ${ctrl.productCategory ?? 'N/A'}`
+        );
+        addLine(`[controller]   isCurrent: ${ctrl.isCurrent}`);
+        addLine(`[controller]   isAttached: ${ctrl.isAttached}`);
+        addLine(`[controller]   playerIndex: ${ctrl.playerIndex}`);
+        addLine(
+          `[controller]   battery: ${ctrl.batteryLevel != null ? `${(ctrl.batteryLevel * 100).toFixed(0)}% (${ctrl.batteryState})` : 'N/A'}`
+        );
+        addLine(
+          `[controller]   lightColor: ${ctrl.lightColor ? `r=${ctrl.lightColor.r} g=${ctrl.lightColor.g} b=${ctrl.lightColor.b}` : 'N/A'}`
+        );
+        addLine(`[controller]   buttons (${ctrl.buttons.length}):`);
+        for (const b of ctrl.buttons) {
+          addLine(
+            `[controller]     bit ${b.bit}: "${b.name}" sf=${b.sfSymbol ?? 'none'} local="${b.localizedName ?? ''}"`
+          );
+        }
+        addLine(`[controller]   axes (${ctrl.axes.length}):`);
+        for (const a of ctrl.axes) {
+          addLine(
+            `[controller]     "${a.name}" analogCount=${a.analogCount} sf=${a.sfSymbol ?? 'none'}`
+          );
+        }
+        addLine(`[controller]   dpads (${ctrl.dpads.length}):`);
+        for (const d of ctrl.dpads) {
+          addLine(
+            `[controller]     "${d.name}" up=${d.up} down=${d.down} left=${d.left} right=${d.right}`
+          );
+        }
+      }
+    } catch (e: any) {
+      addLine(`[error] getControllers: ${e.message}`);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Game Controller Example</Text>
@@ -123,21 +179,27 @@ function App(): React.JSX.Element {
         </View>
       </View>
 
-      <Pressable
-        style={styles.btn}
-        onPress={() => {
-          const next = !polling;
-          addLine(`[polling] ${next ? 'ON' : 'OFF'}`);
-          setPolling(next);
-        }}
-      >
-        <Text style={styles.btnText}>Polling: {polling ? 'ON' : 'OFF'}</Text>
-      </Pressable>
+      <View style={styles.buttonRow}>
+        <Pressable
+          style={styles.btn}
+          onPress={() => {
+            const next = !polling;
+            addLine(`[polling] ${next ? 'ON' : 'OFF'}`);
+            setPolling(next);
+          }}
+        >
+          <Text style={styles.btnText}>Polling: {polling ? 'ON' : 'OFF'}</Text>
+        </Pressable>
+
+        <Pressable style={styles.btn} onPress={handleGetControllers}>
+          <Text style={styles.btnText}>Get Controllers</Text>
+        </Pressable>
+      </View>
 
       {controllers.map((c) => (
         <ControllerStatus
           key={c.controllerId}
-          controllerId={c.controllerId}
+          controller={c}
           pollingEnabled={polling}
         />
       ))}
@@ -155,6 +217,7 @@ const styles = StyleSheet.create({
   toggles: { marginBottom: 12 },
   toggleColumns: { flexDirection: 'row', gap: 16 },
   toggleColumn: { flex: 1 },
+  buttonRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
   btn: {
     paddingHorizontal: 8,
     paddingVertical: 4,
