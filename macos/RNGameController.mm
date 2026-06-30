@@ -251,6 +251,22 @@ jsi::Value RNGameController::getControllers(jsi::Runtime &rt) {
             dObj.setProperty(rt, "name",
                              jsi::String::createFromUtf8(
                                  rt, [(NSString *)d[@"name"] UTF8String]));
+            if (d[@"sfSymbol"] == [NSNull null]) {
+              dObj.setProperty(rt, "sfSymbol", jsi::Value::null());
+            } else {
+              dObj.setProperty(
+                  rt, "sfSymbol",
+                  jsi::String::createFromUtf8(
+                      rt, [(NSString *)d[@"sfSymbol"] UTF8String]));
+            }
+            if (d[@"localizedName"] == [NSNull null]) {
+              dObj.setProperty(rt, "localizedName", jsi::Value::null());
+            } else {
+              dObj.setProperty(
+                  rt, "localizedName",
+                  jsi::String::createFromUtf8(
+                      rt, [(NSString *)d[@"localizedName"] UTF8String]));
+            }
             dObj.setProperty(rt, "up", [(NSNumber *)d[@"up"] doubleValue]);
             dObj.setProperty(rt, "down", [(NSNumber *)d[@"down"] doubleValue]);
             dObj.setProperty(rt, "left", [(NSNumber *)d[@"left"] doubleValue]);

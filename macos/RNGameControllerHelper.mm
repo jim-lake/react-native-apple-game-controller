@@ -120,16 +120,10 @@
       continue;
     }
 
-    NSString *sfSymbol = nil;
-    NSString *locName = nil;
-    if (@available(macOS 14.0, *)) {
-      sfSymbol = btn.sfSymbolsName;
-      locName = btn.localizedName;
-    }
     [buttons addObject:@{
       @"name" : name,
-      @"sfSymbol" : sfSymbol ?: [NSNull null],
-      @"localizedName" : locName ?: [NSNull null],
+      @"sfSymbol" : btn.sfSymbolsName ?: [NSNull null],
+      @"localizedName" : btn.localizedName ?: [NSNull null],
       @"bit" : @(bit)
     }];
     [orderedButtonKeys addObject:name];
@@ -176,6 +170,8 @@
 
     [dpads addObject:@{
       @"name" : dpadName,
+      @"sfSymbol" : dpad.sfSymbolsName ?: [NSNull null],
+      @"localizedName" : dpad.localizedName ?: [NSNull null],
       @"up" : @(upBit),
       @"down" : @(downBit),
       @"left" : @(leftBit),
@@ -198,16 +194,10 @@
     if (ax.isAnalog) {
       [analogAxisKeys addObject:axisName];
     } else {
-      NSString *sfSymbol = nil;
-      NSString *locName = nil;
-      if (@available(macOS 14.0, *)) {
-        sfSymbol = ax.sfSymbolsName;
-        locName = ax.localizedName;
-      }
       [buttons addObject:@{
         @"name" : axisName,
-        @"sfSymbol" : sfSymbol ?: [NSNull null],
-        @"localizedName" : locName ?: [NSNull null],
+        @"sfSymbol" : ax.sfSymbolsName ?: [NSNull null],
+        @"localizedName" : ax.localizedName ?: [NSNull null],
         @"bit" : @(bit)
       }];
       [digitalAxisKeys addObject:axisName];
@@ -224,16 +214,10 @@
       break;
     }
     GCControllerButtonInput *btn = profile.buttons[name];
-    NSString *sfSymbol = nil;
-    NSString *locName = nil;
-    if (@available(macOS 14.0, *)) {
-      sfSymbol = btn.sfSymbolsName;
-      locName = btn.localizedName;
-    }
     [axes addObject:@{
       @"name" : name,
-      @"sfSymbol" : sfSymbol ?: [NSNull null],
-      @"localizedName" : locName ?: [NSNull null],
+      @"sfSymbol" : btn.sfSymbolsName ?: [NSNull null],
+      @"localizedName" : btn.localizedName ?: [NSNull null],
       @"analogCount" : @(1)
     }];
     analogIdx += 1;
@@ -245,16 +229,10 @@
       break;
     }
     GCControllerDirectionPad *dpad = profile.dpads[dpadName];
-    NSString *sfSymbol = nil;
-    NSString *locName = nil;
-    if (@available(macOS 14.0, *)) {
-      sfSymbol = dpad.sfSymbolsName;
-      locName = dpad.localizedName;
-    }
     [axes addObject:@{
       @"name" : dpadName,
-      @"sfSymbol" : sfSymbol ?: [NSNull null],
-      @"localizedName" : locName ?: [NSNull null],
+      @"sfSymbol" : dpad.sfSymbolsName ?: [NSNull null],
+      @"localizedName" : dpad.localizedName ?: [NSNull null],
       @"analogCount" : @(2)
     }];
     analogIdx += 2;
@@ -269,16 +247,10 @@
     if (!ax) {
       continue;
     }
-    NSString *sfSymbol = nil;
-    NSString *locName = nil;
-    if (@available(macOS 14.0, *)) {
-      sfSymbol = ax.sfSymbolsName;
-      locName = ax.localizedName;
-    }
     [axes addObject:@{
       @"name" : axisName,
-      @"sfSymbol" : sfSymbol ?: [NSNull null],
-      @"localizedName" : locName ?: [NSNull null],
+      @"sfSymbol" : ax.sfSymbolsName ?: [NSNull null],
+      @"localizedName" : ax.localizedName ?: [NSNull null],
       @"analogCount" : @(1)
     }];
     analogIdx += 1;

@@ -26,6 +26,8 @@ export interface AxisInfo {
 }
 export interface DpadInfo {
   name: string;
+  sfSymbol: string | null;
+  localizedName: string | null;
   up: number;
   down: number;
   left: number;

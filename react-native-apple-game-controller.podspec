@@ -11,7 +11,7 @@ Pod::Spec.new do |s|
   s.homepage     = "https://github.com/example/react-native-apple-game-controller"
   s.source       = { :git => "https://github.com/example/react-native-apple-game-controller.git", :tag => s.version }
 
-  s.osx.deployment_target = "14.0"
+  s.osx.deployment_target = "15.0"
   s.source_files = "macos/**/*.{h,mm}"
   s.osx.frameworks = "GameController"
 

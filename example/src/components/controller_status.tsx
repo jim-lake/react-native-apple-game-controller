@@ -217,13 +217,14 @@ export function ControllerStatus({ controller, pollingEnabled }: Props) {
             <View style={styles.axesRow}>
               {controller.axes.map((axis) => {
                 const values = visualState.axisValues.get(axis.name) ?? [];
+                const label = axis.localizedName ?? axis.name;
                 if (axis.analogCount === 2) {
                   // Stick — show as crosshair
                   const x = values[0] ?? 0;
                   const y = values[1] ?? 0;
                   return (
                     <View key={axis.name} style={styles.stickContainer}>
-                      <Text style={styles.axisLabel}>{axis.name}</Text>
+                      <Text style={styles.axisLabel}>{label}</Text>
                       <View style={styles.stickBox}>
                         <View
                           style={[
@@ -248,7 +249,7 @@ export function ControllerStatus({ controller, pollingEnabled }: Props) {
                 const val = values[0] ?? 0;
                 return (
                   <View key={axis.name} style={styles.singleAxisContainer}>
-                    <Text style={styles.axisLabel}>{axis.name}</Text>
+                    <Text style={styles.axisLabel}>{label}</Text>
                     <View style={styles.axisBar}>
                       <View
                         style={[
@@ -271,9 +272,11 @@ export function ControllerStatus({ controller, pollingEnabled }: Props) {
                 D-Pads ({controller.dpads.length})
               </Text>
               <View style={styles.dpadsRow}>
-                {visualState.dpadStates.map((dpad) => (
+                {visualState.dpadStates.map((dpad, idx) => (
                   <View key={dpad.name} style={styles.dpadContainer}>
-                    <Text style={styles.axisLabel}>{dpad.name}</Text>
+                    <Text style={styles.axisLabel}>
+                      {controller.dpads[idx]?.localizedName ?? dpad.name}
+                    </Text>
                     <View style={styles.dpadGrid}>
                       <View style={styles.dpadRow}>
                         <View style={styles.dpadEmpty} />

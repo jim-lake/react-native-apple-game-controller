@@ -2643,7 +2643,7 @@ SPEC CHECKSUMS:
   React-logger: 079107325dda1ad527b324f4f3cf61e4f6ce4600
   React-Mapbuffer: 59df6730a578de280cd8675cdf5440b91c243bdf
   React-microtasksnativemodule: 255f0b29a74d001ecd202e4d5f7f170a009b3987
-  react-native-apple-game-controller: 71a53dad7042da1c104385bc90bca4174b2a2fb9
+  react-native-apple-game-controller: f4b9b37c42a42daba1eed70fdea2e5da82fe9f7c
   react-native-safe-area-context: ebd2c2ece5e6e650a6963184039ec8cfd8960d86
   React-NativeModulesApple: c1e8f5e34efed354e5a066ef47c45a4ca5dddbb4
   React-oscompat: b359d251f6ea20fa91e5e0f99fd7b563f50a8af3
@@ -2678,6 +2678,6 @@ SPEC CHECKSUMS:
   SocketRocket: d4aabe649be1e368d1318fdf28a022d714d65748
   Yoga: 8a0df683a71bee13fe0b9d8b653d1a062ff65b2e
 
-PODFILE CHECKSUM: 4d94ec24265d4111e544e58b6acb4f7b639460c8
+PODFILE CHECKSUM: 6a3f218adb1ea31b8f143538d1db942e867261d0
 
 COCOAPODS: 1.16.2

@@ -141,13 +141,13 @@ function App(): React.JSX.Element {
         addLine(`[controller]   axes (${ctrl.axes.length}):`);
         for (const a of ctrl.axes) {
           addLine(
-            `[controller]     "${a.name}" analogCount=${a.analogCount} sf=${a.sfSymbol ?? 'none'}`
+            `[controller]     "${a.name}" analogCount=${a.analogCount} sf=${a.sfSymbol ?? 'none'} local="${a.localizedName ?? ''}"`
           );
         }
         addLine(`[controller]   dpads (${ctrl.dpads.length}):`);
         for (const d of ctrl.dpads) {
           addLine(
-            `[controller]     "${d.name}" up=${d.up} down=${d.down} left=${d.left} right=${d.right}`
+            `[controller]     "${d.name}" sf=${d.sfSymbol ?? 'none'} local="${d.localizedName ?? ''}" up=${d.up} down=${d.down} left=${d.left} right=${d.right}`
           );
         }
       }
