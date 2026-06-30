@@ -53,13 +53,12 @@
   NSArray<NSString *> *buttonNames =
       [[profile.buttons allKeys] sortedArrayUsingSelector:@selector(compare:)];
 
-  // Collect which button names are part of dpads so we can tag them
+  // Collect which button names are part of dpads so we can exclude them
   NSMutableSet<NSString *> *dpadButtonNames = [NSMutableSet set];
   NSArray<NSString *> *dpadNames =
       [[profile.dpads allKeys] sortedArrayUsingSelector:@selector(compare:)];
   for (NSString *dpadName in dpadNames) {
     GCControllerDirectionPad *dpad = profile.dpads[dpadName];
-    // Each dpad direction is also in profile.buttons; track them
     for (NSString *bName in buttonNames) {
       GCControllerButtonInput *btn = profile.buttons[bName];
       if (btn == dpad.up || btn == dpad.down || btn == dpad.left ||
@@ -69,15 +68,55 @@
     }
   }
 
-  // Assign bits to all non-dpad buttons first
+  // Discover all axes dynamically.
+  NSArray<NSString *> *axisNames =
+      [[profile.axes allKeys] sortedArrayUsingSelector:@selector(compare:)];
+
+  // Track which axes belong to dpads
+  NSMutableSet<NSString *> *dpadAxisNames = [NSMutableSet set];
+  for (NSString *dpadName in dpadNames) {
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    for (NSString *aName in axisNames) {
+      GCControllerAxisInput *ax = profile.axes[aName];
+      if (ax == dpad.xAxis || ax == dpad.yAxis) {
+        [dpadAxisNames addObject:aName];
+      }
+    }
+  }
+
+  // Categorize dpads: analog dpads become axes, digital dpads become dpads
+  // with button bits
+  NSMutableArray<NSString *> *analogDpadKeys = [NSMutableArray array];
+  NSMutableArray<NSString *> *digitalDpadKeys = [NSMutableArray array];
+  for (NSString *dpadName in dpadNames) {
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    if (!dpad) {
+      continue;
+    }
+    if (dpad.isAnalog) {
+      [analogDpadKeys addObject:dpadName];
+    } else {
+      [digitalDpadKeys addObject:dpadName];
+    }
+  }
+
+  // Assign bits to non-dpad, NON-analog buttons only.
+  // Analog buttons become axes only (no button bit).
   int bit = 0;
   NSMutableArray<NSString *> *orderedButtonKeys = [NSMutableArray array];
+  NSMutableArray<NSString *> *analogButtonKeys = [NSMutableArray array];
   for (NSString *name in buttonNames) {
     if ([dpadButtonNames containsObject:name]) {
       continue;
     }
     GCControllerButtonInput *btn = profile.buttons[name];
     if (!btn) {
+      continue;
+    }
+
+    if (btn.isAnalog) {
+      // Analog button → only an axis, no button bit
+      [analogButtonKeys addObject:name];
       continue;
     }
 
@@ -97,9 +136,9 @@
     bit++;
   }
 
-  // Assign bits for dpad directions and build dpad info
+  // Digital dpads get button bits and dpad entries
   NSMutableArray<NSString *> *orderedDpadKeys = [NSMutableArray array];
-  for (NSString *dpadName in dpadNames) {
+  for (NSString *dpadName in digitalDpadKeys) {
     GCControllerDirectionPad *dpad = profile.dpads[dpadName];
     if (!dpad) {
       continue;
@@ -145,78 +184,9 @@
     [orderedDpadKeys addObject:dpadName];
   }
 
-  // Discover all axes dynamically. Axes that are part of dpads get grouped.
-  // Each dpad contributes 2 analog values (x, y). Standalone axes contribute 1.
-  NSArray<NSString *> *axisNames =
-      [[profile.axes allKeys] sortedArrayUsingSelector:@selector(compare:)];
-
-  // Track which axes belong to dpads
-  NSMutableSet<NSString *> *dpadAxisNames = [NSMutableSet set];
-  for (NSString *dpadName in dpadNames) {
-    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
-    for (NSString *aName in axisNames) {
-      GCControllerAxisInput *ax = profile.axes[aName];
-      if (ax == dpad.xAxis || ax == dpad.yAxis) {
-        [dpadAxisNames addObject:aName];
-      }
-    }
-  }
-
-  int analogIdx = 0;
-
-  // Analog buttons — any non-dpad button that reports analog values gets an
-  // axis. We track which buttons are analog so we can wire them into the axis
-  // map later.
-  NSMutableArray<NSString *> *analogButtonKeys = [NSMutableArray array];
-  for (NSString *name in orderedButtonKeys) {
-    if (analogIdx + 1 > kMaxAnalog) {
-      break;
-    }
-    GCControllerButtonInput *btn = profile.buttons[name];
-    if (!btn || !btn.isAnalog) {
-      continue;
-    }
-    NSString *sfSymbol = nil;
-    NSString *locName = nil;
-    if (@available(macOS 14.0, *)) {
-      sfSymbol = btn.sfSymbolsName;
-      locName = btn.localizedName;
-    }
-    [axes addObject:@{
-      @"name" : name,
-      @"sfSymbol" : sfSymbol ?: [NSNull null],
-      @"localizedName" : locName ?: [NSNull null],
-      @"analogCount" : @(1)
-    }];
-    [analogButtonKeys addObject:name];
-    analogIdx += 1;
-  }
-
-  // Dpad-based axes (2 analogs per dpad: x, y)
-  for (NSString *dpadName in dpadNames) {
-    if (analogIdx + 2 > kMaxAnalog) {
-      break;
-    }
-    NSString *sfSymbol = nil;
-    NSString *locName = nil;
-    if (@available(macOS 14.0, *)) {
-      GCControllerDirectionPad *dpad = profile.dpads[dpadName];
-      sfSymbol = dpad.sfSymbolsName;
-      locName = dpad.localizedName;
-    }
-    [axes addObject:@{
-      @"name" : dpadName,
-      @"sfSymbol" : sfSymbol ?: [NSNull null],
-      @"localizedName" : locName ?: [NSNull null],
-      @"analogCount" : @(2)
-    }];
-    analogIdx += 2;
-  }
-
-  // Standalone axes — only analog axes get an axis entry.
-  // Non-analog axes are treated as buttons (digital on/off).
-  NSMutableArray<NSString *> *analogAxisKeys = [NSMutableArray array];
+  // Non-analog standalone axes → buttons
   NSMutableArray<NSString *> *digitalAxisKeys = [NSMutableArray array];
+  NSMutableArray<NSString *> *analogAxisKeys = [NSMutableArray array];
   for (NSString *axisName in axisNames) {
     if ([dpadAxisNames containsObject:axisName]) {
       continue;
@@ -226,25 +196,8 @@
       continue;
     }
     if (ax.isAnalog) {
-      if (analogIdx + 1 > kMaxAnalog) {
-        break;
-      }
-      NSString *sfSymbol = nil;
-      NSString *locName = nil;
-      if (@available(macOS 14.0, *)) {
-        sfSymbol = ax.sfSymbolsName;
-        locName = ax.localizedName;
-      }
-      [axes addObject:@{
-        @"name" : axisName,
-        @"sfSymbol" : sfSymbol ?: [NSNull null],
-        @"localizedName" : locName ?: [NSNull null],
-        @"analogCount" : @(1)
-      }];
       [analogAxisKeys addObject:axisName];
-      analogIdx += 1;
     } else {
-      // Non-analog axis → treat as a button
       NSString *sfSymbol = nil;
       NSString *locName = nil;
       if (@available(macOS 14.0, *)) {
@@ -260,6 +213,75 @@
       [digitalAxisKeys addObject:axisName];
       bit++;
     }
+  }
+
+  // Now build the axes array (analog items only)
+  int analogIdx = 0;
+
+  // Analog buttons (1 analog each)
+  for (NSString *name in analogButtonKeys) {
+    if (analogIdx + 1 > kMaxAnalog) {
+      break;
+    }
+    GCControllerButtonInput *btn = profile.buttons[name];
+    NSString *sfSymbol = nil;
+    NSString *locName = nil;
+    if (@available(macOS 14.0, *)) {
+      sfSymbol = btn.sfSymbolsName;
+      locName = btn.localizedName;
+    }
+    [axes addObject:@{
+      @"name" : name,
+      @"sfSymbol" : sfSymbol ?: [NSNull null],
+      @"localizedName" : locName ?: [NSNull null],
+      @"analogCount" : @(1)
+    }];
+    analogIdx += 1;
+  }
+
+  // Analog dpads (2 analogs per dpad: x, y) — no button bits, only axes
+  for (NSString *dpadName in analogDpadKeys) {
+    if (analogIdx + 2 > kMaxAnalog) {
+      break;
+    }
+    GCControllerDirectionPad *dpad = profile.dpads[dpadName];
+    NSString *sfSymbol = nil;
+    NSString *locName = nil;
+    if (@available(macOS 14.0, *)) {
+      sfSymbol = dpad.sfSymbolsName;
+      locName = dpad.localizedName;
+    }
+    [axes addObject:@{
+      @"name" : dpadName,
+      @"sfSymbol" : sfSymbol ?: [NSNull null],
+      @"localizedName" : locName ?: [NSNull null],
+      @"analogCount" : @(2)
+    }];
+    analogIdx += 2;
+  }
+
+  // Analog standalone axes (1 analog each)
+  for (NSString *axisName in analogAxisKeys) {
+    if (analogIdx + 1 > kMaxAnalog) {
+      break;
+    }
+    GCControllerAxisInput *ax = profile.axes[axisName];
+    if (!ax) {
+      continue;
+    }
+    NSString *sfSymbol = nil;
+    NSString *locName = nil;
+    if (@available(macOS 14.0, *)) {
+      sfSymbol = ax.sfSymbolsName;
+      locName = ax.localizedName;
+    }
+    [axes addObject:@{
+      @"name" : axisName,
+      @"sfSymbol" : sfSymbol ?: [NSNull null],
+      @"localizedName" : locName ?: [NSNull null],
+      @"analogCount" : @(1)
+    }];
+    analogIdx += 1;
   }
 
   entry->analogCount = analogIdx;
@@ -282,7 +304,7 @@
                                          NSPointerFunctionsOpaquePersonality
                             valueOptions:NSPointerFunctionsStrongMemory];
 
-  // Map each non-dpad button to its bit
+  // Map each non-dpad, non-analog button to its bit
   {
     int b = 0;
     for (NSString *name in orderedButtonKeys) {
@@ -292,10 +314,9 @@
     }
   }
 
-  // Map dpad direction buttons to their bits
+  // Map digital dpad direction buttons to their bits
   for (NSString *dpadName in orderedDpadKeys) {
     GCControllerDirectionPad *dpad = profile.dpads[dpadName];
-    // Find the dpad info entry to get the bit values
     for (NSDictionary *dInfo in dpads) {
       if ([dInfo[@"name"] isEqualToString:dpadName]) {
         [buttonMap setObject:dInfo[@"up"]
@@ -311,22 +332,37 @@
     }
   }
 
-  // Map axes/dpads to analog indices
+  // Map digital (non-analog) standalone axes to the button map
+  for (NSString *axisName in digitalAxisKeys) {
+    GCControllerAxisInput *ax = profile.axes[axisName];
+    if (!ax) {
+      continue;
+    }
+    for (NSDictionary *bInfo in buttons) {
+      if ([bInfo[@"name"] isEqualToString:axisName]) {
+        [buttonMap setObject:bInfo[@"bit"] forKey:(GCControllerElement *)ax];
+        break;
+      }
+    }
+  }
+
+  // Map analog elements to the analog array indices
   int aIdx = 0;
-  // Analog buttons first (matches discovery order above)
+  // Analog buttons first (matches axes array order)
   for (NSString *name in analogButtonKeys) {
     GCControllerButtonInput *btn = profile.buttons[name];
     [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)btn];
     aIdx++;
   }
-  for (NSString *dpadName in dpadNames) {
+  // Analog dpads (only analog ones are axes)
+  for (NSString *dpadName in analogDpadKeys) {
     GCControllerDirectionPad *dpad = profile.dpads[dpadName];
     [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)dpad];
     [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)dpad.xAxis];
     [axisMap setObject:@(aIdx + 1) forKey:(GCControllerElement *)dpad.yAxis];
     aIdx += 2;
   }
-  // Only analog standalone axes get mapped to the analog array
+  // Analog standalone axes
   for (NSString *axisName in analogAxisKeys) {
     GCControllerAxisInput *ax = profile.axes[axisName];
     if (!ax) {
@@ -334,21 +370,6 @@
     }
     [axisMap setObject:@(aIdx) forKey:(GCControllerElement *)ax];
     aIdx++;
-  }
-
-  // Map digital (non-analog) axes to the button map
-  for (NSString *axisName in digitalAxisKeys) {
-    GCControllerAxisInput *ax = profile.axes[axisName];
-    if (!ax) {
-      continue;
-    }
-    // Find the bit for this axis name in the buttons array
-    for (NSDictionary *bInfo in buttons) {
-      if ([bInfo[@"name"] isEqualToString:axisName]) {
-        [buttonMap setObject:bInfo[@"bit"] forKey:(GCControllerElement *)ax];
-        break;
-      }
-    }
   }
 
   int cid = entry->controllerId;
